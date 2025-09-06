@@ -62,19 +62,40 @@ pip install -r requirements.txt
 python -c "import flask; print(f'Flask {flask.__version__}')"
 ```
 
-## Krok 3: Konfiguracja aplikacji
+## Krok 3: Konfiguracja credentials
 
-### Edycja ścieżek w app.py
+**⚠️ WAŻNE: Nie używaj domyślnych credentials w produkcji!**
+
+### Development setup
+
 ```bash
-# Sprawdź aktualne ścieżki
-grep -n "DATABASE_PATH\|LOG_PATH" app.py
+# Wygeneruj bezpieczne credentials dla developmentu
+python generate_credentials.py --output env
 
-# Jeśli potrzeba, dostosuj ścieżki do aktualnego katalogu
-# DATABASE_PATH = '/home/yourusername/water-system-logger/water_events.db'
-# LOG_PATH = '/home/yourusername/water-system-logger/app.log'
+# Sprawdź wygenerowane credentials
+ls -la .env*
+# -rw------- 1 user user  874 .env          # Real credentials (git ignored)
+# -rw-r--r-- 1 user user 1270 .env.example  # Template (safe to commit)
 ```
 
-### Test aplikacji
+### Production setup
+
+```bash
+# Wygeneruj silne credentials dla produkcji
+python generate_credentials.py --output systemd --password-length 40 --no-symbols
+
+# Sprawdź wygenerowany plik systemd
+ls -la systemd-override.conf
+```
+
+**📖 Szczegółowy przewodnik**: Zobacz [CREDENTIALS.md](CREDENTIALS.md) dla:
+- Generowania silnych credentials
+- Rotacji credentials w różnych środowiskach
+- Security audit i best practices
+- Backup i recovery procedures
+- Troubleshooting credential issues
+
+### Test aplikacji z credentials
 ```bash
 # Test uruchomienia (zatrzyma się po 10 sekund)
 timeout 10s python app.py
@@ -190,9 +211,9 @@ EOF
 chmod +x start_water_system.sh
 ```
 
-### Utworzenie systemd service
+### Utworzenie systemd service z credentials
 ```bash
-# ZMIEŃ ścieżki na swoje
+# Utwórz główny service file
 sudo tee /etc/systemd/system/water-system.service > /dev/null <<EOF
 [Unit]
 Description=ESP32-C3 Water System VPS Logger
@@ -218,6 +239,12 @@ ReadWritePaths=/home/$(whoami)/water-system-logger
 [Install]
 WantedBy=multi-user.target
 EOF
+
+# Utwórz override file z credentials
+sudo mkdir -p /etc/systemd/system/water-system.service.d/
+sudo cp systemd-override.conf /etc/systemd/system/water-system.service.d/override.conf
+sudo chmod 600 /etc/systemd/system/water-system.service.d/override.conf
+sudo chown root:root /etc/systemd/system/water-system.service.d/override.conf
 ```
 
 ### Aktywacja usługi
@@ -233,6 +260,15 @@ sudo systemctl start water-system
 
 # Sprawdź status
 sudo systemctl status water-system
+```
+
+### Weryfikacja credentials w systemd
+```bash
+# Sprawdź czy systemd ma dostęp do credentials
+sudo systemctl show water-system --property=Environment
+
+# Test czy credentials są poprawnie załadowane
+sudo journalctl -u water-system --lines=10 | grep -E "(Environment variables loaded|credentials)"
 ```
 
 ## Krok 7: Konfiguracja firewall (opcjonalnie)
@@ -267,7 +303,7 @@ curl https://your-domain.com/health
 # Test admin panel
 curl -I https://your-domain.com/login
 
-# Test ESP32 API (oczekiwany 401)
+# Test ESP32 API (oczekiwany 401 bez tokena)
 curl -I https://your-domain.com/api/water-events -X POST
 ```
 
@@ -302,6 +338,28 @@ sudo systemctl reload nginx
 # Sprawdzenie portów
 netstat -tln | grep ':80\|:443\|:5000\|:5001'
 ```
+
+### Zarządzanie credentials w produkcji
+
+```bash
+# Rotacja credentials (bezpieczna metoda)
+python generate_credentials.py --output systemd --password-length 40
+
+# Backup obecnych credentials
+sudo cp /etc/systemd/system/water-system.service.d/override.conf \
+       /etc/systemd/system/water-system.service.d/override.conf.backup.$(date +%s)
+
+# Deploy nowych credentials
+sudo cp systemd-override.conf /etc/systemd/system/water-system.service.d/override.conf
+sudo chmod 600 /etc/systemd/system/water-system.service.d/override.conf
+sudo systemctl daemon-reload
+sudo systemctl restart water-system
+
+# Weryfikuj deployment
+curl -s https://your-domain.com/health
+```
+
+**📚 Więcej o credentials**: Zobacz [CREDENTIALS.md](CREDENTIALS.md) dla szczegółowych procedur rotacji credentials, security audit, backup i recovery.
 
 ### Aktualizacja aplikacji
 ```bash
@@ -356,6 +414,20 @@ sudo tail -100 /var/log/nginx/water-system.access.log | grep -v "200\|301\|302"
 sudo systemctl show water-system --property=MemoryCurrent
 ```
 
+### Monitoring credentials
+
+```bash
+# Sprawdź wiek credentials (rotacja co 90 dni zalecana)
+echo "Credentials age:"
+sudo stat -c %Y /etc/systemd/system/water-system.service.d/override.conf | xargs -I {} date -d @{}
+
+# Monitor nieudanych prób logowania
+sudo journalctl -u water-system | grep -i "failed\|unauthorized" | tail -10
+
+# Sprawdź czy credentials nie są widoczne w procesach
+ps aux | grep water-system | grep -v grep
+```
+
 ## Rozwiązywanie problemów
 
 ### Aplikacja nie startuje
@@ -363,8 +435,8 @@ sudo systemctl show water-system --property=MemoryCurrent
 # Sprawdź logi
 sudo journalctl -u water-system --lines=20
 
-# Sprawdź ścieżki w service
-sudo cat /etc/systemd/system/water-system.service
+# Sprawdź credentials
+sudo systemctl show water-system --property=Environment | grep -c "WATER_SYSTEM"
 
 # Test ręczny
 cd /home/$(whoami)/water-system-logger
@@ -378,7 +450,7 @@ python app.py
 netstat -tln | grep ':5000\|:5001'
 
 # Restart aplikacji
-sudo systemctl restart water-system
+
 
 # Sprawdź logi nginx
 sudo tail -10 /var/log/nginx/water-system.error.log
@@ -396,16 +468,34 @@ sudo nginx -t
 echo | openssl s_client -connect your-domain.com:443 | openssl x509 -noout -dates
 ```
 
+### Problemy z credentials
+
+```bash
+# Missing credentials error
+python generate_credentials.py --output env  # Development
+sudo systemctl edit water-system             # Production
+
+# Invalid credentials (401 errors)
+sudo journalctl -u water-system | grep -i "unauthorized\|invalid"
+
+# File permission issues  
+sudo chmod 600 /etc/systemd/system/water-system.service.d/override.conf
+sudo systemctl daemon-reload
+```
+
 ## Bezpieczeństwo
 
-### Zmiana domyślnych haseł
-```bash
-# Edytuj app.py i zmień:
-# ADMIN_PASSWORD = 'twoje_bezpieczne_haslo'
-# VALID_TOKEN = 'twoj_bezpieczny_token_esp32'
+### Podstawowe zabezpieczenia
 
-# Po zmianie restart aplikacji
-sudo systemctl restart water-system
+```bash
+# Zmiana domyślnych credentials
+python generate_credentials.py --output both --password-length 40
+
+# File permissions audit
+sudo find /etc/systemd/system/water-system.service.d/ -type f -exec ls -la {} \;
+
+# Network security
+sudo ufw status
 ```
 
 ### Monitoring bezpieczeństwa
@@ -415,6 +505,10 @@ sudo journalctl -u water-system | grep -i "failed\|locked\|invalid"
 
 # Sprawdzenie podejrzanego ruchu
 sudo grep "401\|403\|404" /var/log/nginx/water-system.access.log | tail -10
+
+# Credential audit
+echo "Last credential change:"
+sudo stat -c %y /etc/systemd/system/water-system.service.d/override.conf
 ```
 
 ## URLs produkcyjne
@@ -425,4 +519,10 @@ Po wdrożeniu aplikacja będzie dostępna pod:
 - **ESP32 API**: `https://your-domain.com/api/`
 - **Health Check**: `https://your-domain.com/health`
 
-Zmień `your-domain.com` na swoją rzeczywistą domenę w wszystkich plikach konfiguracyjnych.
+## Dodatkowe zasoby
+
+- **[CREDENTIALS.md](CREDENTIALS.md)** - Szczegółowy przewodnik zarządzania credentials
+- **[README.md](README.md)** - Opis projektu i podstawowa dokumentacja
+- **ESP32 Integration** - Zobacz przykłady w katalogu `examples/` (jeśli dostępny)
+
+Zmień `your-domain.com` na swoją rzeczywistą domenę we wszystkich plikach konfiguracyjnych.
