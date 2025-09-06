@@ -4,14 +4,34 @@ ESP32-C3 Water System VPS Logger
 Odbiera i przechowuje zdarzenia z systemu podlewania
 + Admin Panel do zapytań SQL
 + Nginx Reverse Proxy Support
++ Environment Variables Configuration
 """
+
+import os
+import sys
+
+# Ładowanie .env file dla developmentu (przed importami Flask)
+try:
+    from dotenv import load_dotenv
+    # Szukaj .env w katalogu aplikacji
+    env_path = os.path.join(os.path.dirname(__file__), '.env')
+    if os.path.exists(env_path):
+        load_dotenv(env_path)
+        print(f"📄 Loaded environment variables from {env_path}")
+    else:
+        # Sprawdź czy są ustawione zmienne systemowe
+        if not os.getenv('WATER_SYSTEM_ADMIN_PASSWORD'):
+            print("⚠️  No .env file found and no environment variables set")
+            print("   Create .env file or set environment variables")
+            print("   Run: python generate_credentials.py --output env")
+except ImportError:
+    print("📦 python-dotenv not installed, using system environment variables only")
 
 from flask import Flask, request, jsonify, render_template, send_file, Response, redirect, url_for, session, flash
 import sqlite3
 import json
 import logging
 from datetime import datetime, timedelta
-import os
 import csv
 import io
 import re
@@ -22,26 +42,67 @@ import secrets
 import hashlib
 import time
 
-# Konfiguracja
-DATABASE_PATH = '/home/kichnu/tap_off_water-vps/water_events.db'
-LOG_PATH = '/home/kichnu/tap_off_water-vps/app.log'
+# === KONFIGURACJA Z ZMIENNYCH ŚRODOWISKOWYCH ===
 
-#VALID_TOKEN = 'WaterSystem2024_StaticToken_ESP32C3'
-VALID_TOKEN = 'sha256:7b4f8a9c2e6d5a1b8f7e4c9a6d3b2f8e5c1a7b4f9e6d3c8a5b2f7e4c9a6d1b8f'
-# VALID_DEVICE_IDS = ['ESP32C3_WaterPump_001']
-VALID_DEVICE_IDS = ['DOLEWKA']
+# Ścieżki do plików (automatyczna detekcja lub z env)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DATABASE_PATH = os.getenv('WATER_SYSTEM_DATABASE_PATH', 
+                         os.path.join(BASE_DIR, 'water_events.db'))
+LOG_PATH = os.getenv('WATER_SYSTEM_LOG_PATH', 
+                    os.path.join(BASE_DIR, 'app.log'))
 
+# Credentials - WYMAGANE zmienne środowiskowe
+ADMIN_PASSWORD = os.getenv('WATER_SYSTEM_ADMIN_PASSWORD')
+VALID_TOKEN = os.getenv('WATER_SYSTEM_API_TOKEN')
 
-# Konfiguracja portów - NGINX COMPATIBLE
-HTTP_PORT = 5000  # ESP32 API (HTTP only)
-ADMIN_PORT = 5001  # Admin Panel (HTTP - Nginx obsługuje SSL)
-ENABLE_NGINX_MODE = True  # Nginx reverse proxy mode
+# Lista dozwolonych urządzeń (z fallback)
+device_ids_str = os.getenv('WATER_SYSTEM_DEVICE_IDS', 'DOLEWKA')
+VALID_DEVICE_IDS = [dev.strip() for dev in device_ids_str.split(',') if dev.strip()]
 
-# Konfiguracja Admin Panel - Session Management
-ADMIN_PASSWORD = 'admin'  # Zmień na bezpieczniejsze hasło
-SESSION_TIMEOUT_MINUTES = 30
-MAX_FAILED_ATTEMPTS = 8
-LOCKOUT_DURATION_HOURS = 1
+# Konfiguracja portów
+HTTP_PORT = int(os.getenv('WATER_SYSTEM_HTTP_PORT', '5000'))
+ADMIN_PORT = int(os.getenv('WATER_SYSTEM_ADMIN_PORT', '5001'))
+ENABLE_NGINX_MODE = os.getenv('WATER_SYSTEM_NGINX_MODE', 'true').lower() == 'true'
+
+# Konfiguracja bezpieczeństwa
+SESSION_TIMEOUT_MINUTES = int(os.getenv('WATER_SYSTEM_SESSION_TIMEOUT', '30'))
+MAX_FAILED_ATTEMPTS = int(os.getenv('WATER_SYSTEM_MAX_FAILED_ATTEMPTS', '8'))
+LOCKOUT_DURATION_HOURS = int(os.getenv('WATER_SYSTEM_LOCKOUT_DURATION', '1'))
+
+def verify_required_env_vars():
+    """Sprawdź czy wszystkie wymagane zmienne środowiskowe są ustawione"""
+    required_vars = {
+        'WATER_SYSTEM_ADMIN_PASSWORD': ADMIN_PASSWORD,
+        'WATER_SYSTEM_API_TOKEN': VALID_TOKEN
+    }
+    
+    missing_vars = []
+    for var_name, var_value in required_vars.items():
+        if not var_value:
+            missing_vars.append(var_name)
+    
+    if missing_vars:
+        error_msg = f"""
+❌ BRAK WYMAGANYCH ZMIENNYCH ŚRODOWISKOWYCH:
+{', '.join(missing_vars)}
+
+🔧 DEVELOPMENT - Utwórz plik .env:
+   python generate_credentials.py --output env
+   
+🚀 PRODUCTION - Ustaw zmienne systemowe:
+   export WATER_SYSTEM_ADMIN_PASSWORD='your_secure_password'
+   export WATER_SYSTEM_API_TOKEN='your_secure_api_token'
+
+📖 Więcej informacji w DEPLOY.md
+"""
+        print(error_msg)
+        return False
+    
+    return True
+
+# Sprawdź zmienne na starcie
+if not verify_required_env_vars():
+    sys.exit(1)
 
 # Session storage (in production użyj Redis/Database)
 active_sessions = {}
@@ -49,15 +110,16 @@ failed_attempts = {}
 locked_accounts = {}
 
 app = Flask(__name__)
-app.secret_key = secrets.token_hex(32)  # Losowy klucz dla sesji
+app.secret_key = os.getenv('WATER_SYSTEM_SECRET_KEY', secrets.token_hex(32))
 app.permanent_session_lifetime = timedelta(minutes=SESSION_TIMEOUT_MINUTES)
 
 app.config['TEMPLATES_AUTO_RELOAD'] = True
 app.jinja_env.auto_reload = True
 
 # Konfiguracja logowania
+log_level = os.getenv('WATER_SYSTEM_LOG_LEVEL', 'INFO').upper()
 logging.basicConfig(
-    level=logging.INFO,
+    level=getattr(logging, log_level),
     format='%(asctime)s - %(levelname)s - %(message)s',
     handlers=[
         logging.FileHandler(LOG_PATH),
@@ -65,8 +127,18 @@ logging.basicConfig(
     ]
 )
 
-
-
+# Log konfiguracji na starcie (bez credentials)
+logging.info("=== WATER SYSTEM CONFIGURATION ===")
+logging.info(f"Base directory: {BASE_DIR}")
+logging.info(f"Database path: {DATABASE_PATH}")
+logging.info(f"Log path: {LOG_PATH}")
+logging.info(f"HTTP port: {HTTP_PORT}")
+logging.info(f"Admin port: {ADMIN_PORT}")
+logging.info(f"Nginx mode: {ENABLE_NGINX_MODE}")
+logging.info(f"Session timeout: {SESSION_TIMEOUT_MINUTES} minutes")
+logging.info(f"Valid device IDs: {VALID_DEVICE_IDS}")
+logging.info(f"Log level: {log_level}")
+logging.info("Environment variables loaded successfully ✅")
 def init_database():
     """Inicjalizacja bazy danych SQLite z rozszerzonymi kolumnami algorytmicznymi"""
     os.makedirs(os.path.dirname(DATABASE_PATH), exist_ok=True)
