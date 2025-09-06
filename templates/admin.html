@@ -1,0 +1,1063 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <!-- TEST v2 -->
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🐠 Water System Admin Panel</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          
+
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+            color: white;
+            padding: 20px 30px;
+            position: relative;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 5px;
+        }
+
+        .header .subtitle {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+
+        .header-controls {
+            position: absolute;
+            top: 20px;
+            right: 30px;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .session-info {
+            background: rgba(255,255,255,0.1);
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            backdrop-filter: blur(10px);
+        }
+
+        .logout-btn {
+            background: #e74c3c;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+
+        .logout-btn:hover {
+            background: #c0392b;
+            transform: translateY(-1px);
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .section {
+            margin-bottom: 30px;
+        }
+
+        .section h2 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+            font-size: 20px;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 5px;
+        }
+
+        .quick-queries {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .quick-btn {
+            background: linear-gradient(135deg, #3498db, #2980b9);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+            font-size: 14px;
+        }
+
+        .quick-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(52, 152, 219, 0.4);
+        }
+
+        .quick-btn:active {
+            transform: translateY(0);
+        }
+
+        .sql-editor {
+            margin-bottom: 20px;
+        }
+
+        .sql-textarea {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 14px;
+            resize: vertical;
+            background: #f8f9fa;
+        }
+
+        .sql-textarea:focus {
+            outline: none;
+            border-color: #3498db;
+            background: white;
+        }
+
+        .execute-section {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .execute-btn {
+            background: linear-gradient(135deg, #27ae60, #229954);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 16px;
+            transition: all 0.3s;
+        }
+
+        .execute-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(39, 174, 96, 0.4);
+        }
+
+        .execute-btn:disabled {
+            background: #95a5a6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .export-section {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .export-btn {
+            background: linear-gradient(135deg, #e74c3c, #c0392b);
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            text-decoration: none;
+            display: inline-block;
+            transition: all 0.3s;
+        }
+
+        .export-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 3px 10px rgba(231, 76, 60, 0.4);
+        }
+
+        .results-section {
+            margin-top: 20px;
+        }
+
+        .results-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .results-info {
+            color: #7f8c8d;
+            font-size: 14px;
+        }
+
+
+
+
+        /* .results-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            max-height: 500px;
+            overflow-y: auto;
+            display: block;
+        }
+
+        .results-table thead,
+        .results-table tbody {
+            display: table;
+            width: 100%;
+            table-layout: fixed;
+        }
+
+        .results-table th,
+        .results-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ecf0f1;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+        }
+
+        .results-table th {
+            background: #34495e;
+            color: white;
+            font-weight: bold;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .results-table tbody tr:hover {
+            background: #f8f9fa;
+        }
+
+        .results-table tbody tr:nth-child(even) {
+            background: #fafbfc;
+        } */
+
+        .results-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            max-height: 500px;
+            overflow-y: auto;
+            display: block;
+            position: relative;
+        }
+
+        .results-table thead,
+        .results-table tbody {
+            display: table;
+            width: 100%;
+            table-layout: fixed;
+        }
+
+        .results-table thead {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: #34495e;
+        }
+
+        .results-table th,
+        .results-table td {
+            padding: 8px 4px;
+            text-align: center;
+            border-bottom: 1px solid #ecf0f1;
+            border-right: 1px solid #ecf0f1;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            vertical-align: middle;
+        }
+
+        .results-table th {
+            background: #a6b5c5;
+            color: black;
+            font-weight: bold;
+            height: 180px;
+            min-height: 80px;
+            position: relative;
+            white-space: nowrap;
+        }
+
+        .results-table th span {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-90deg);
+            transform-origin: center center;
+            white-space: nowrap;
+            font-size: 12px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+                /* Gdy kolumn jest mało (<8) - wyłącz obrót */
+        .results-table.few-columns th {
+            height: auto;
+            min-height: 40px;
+        }
+
+        .results-table.few-columns th span {
+            transform: translate(-50%, -50%) rotate(0deg);
+            position: static;
+            transform: none;
+            display: block;
+            padding: 10px;
+            font-size: 13px;
+        }
+
+        .results-table td {
+            font-size: 11px;
+            max-width: 100px;
+            padding: 6px 4px;
+        }
+
+        .results-table tbody tr:hover {
+            background: #f8f9fa;
+        }
+
+        .results-table tbody tr:nth-child(even) {
+            background: #fafbfc;
+        }
+
+        .results-table tbody tr:nth-child(even):hover {
+            background: #f1f3f4;
+        }
+
+        /* Responsywność dla małych ekranów */
+        @media (max-width: 768px) {
+            .results-table th {
+                height: 60px;
+                min-height: 60px;
+            }
+            
+            .results-table th span {
+                font-size: 10px;
+            }
+            
+            .results-table td {
+                font-size: 10px;
+                padding: 4px 2px;
+            }
+        }
+
+        .alert {
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 8px;
+            font-weight: bold;
+        }
+
+        .alert.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .alert.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .alert.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .alert.warning {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #7f8c8d;
+        }
+
+        .loading::after {
+            content: '';
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-left: 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .no-results {
+            text-align: center;
+            padding: 40px;
+            color: #7f8c8d;
+            font-style: italic;
+        }
+
+        .session-warning {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #f39c12;
+            color: white;
+            padding: 15px 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            display: none;
+            z-index: 1000;
+        }
+
+        @media (max-width: 768px) {
+            .content {
+                padding: 20px;
+            }
+
+            .header-controls {
+                position: static;
+                margin-top: 15px;
+                justify-content: flex-start;
+            }
+
+            .quick-queries {
+                grid-template-columns: 1fr;
+            }
+
+            .execute-section {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .execute-btn,
+            .export-btn {
+                width: 100%;
+                margin: 5px 0;
+            }
+
+            .results-table {
+                font-size: 12px;
+            }
+
+            .results-table th,
+            .results-table td {
+                padding: 8px 4px;
+            }
+        }
+
+        .help-section {
+            background: #ecf0f1;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+
+        .help-section h3 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+
+        .help-section code {
+            background: #34495e;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+
+        .help-section ul {
+            margin-left: 20px;
+        }
+
+        .help-section li {
+            margin: 5px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="session-warning" id="sessionWarning">
+        ⚠️ Session expires in <span id="warningTime">5</span> minutes. Click to extend.
+    </div>
+
+
+
+
+    <div class="container">
+        <div class="header">
+            <h1>🐠 Aquarium System Database - Admin Panel</h1>
+            <div class="header-controls">
+                <div class="session-info" id="sessionInfo">
+                    Loading session info...
+                </div>
+                <button class="logout-btn" onclick="logout()">
+                    Logout
+                </button>
+            </div>
+        </div>
+
+        <div class="content">
+            <!-- Quick Queries Section -->
+            <div class="section">
+                <h2>📊 Quick Queries</h2>
+         
+                <div class="quick-queries">
+                    <button class="quick-btn" onclick="executeQuickQuery('last24h')">Last 24 Hours</button>
+                    <button class="quick-btn" onclick="executeQuickQuery('today_stats')">Today's Stats</button>
+                    <button class="quick-btn" onclick="executeQuickQuery('all_events')">All Events</button>
+                    <button class="quick-btn" onclick="executeQuickQuery('errors')">Errors</button>
+                    <button class="quick-btn" onclick="executeQuickQuery('monthly')">Daily Summary</button>
+                    <button class="quick-btn" onclick="executeQuickQuery('algorithm_cycles')">🤖 Algorithm Cycles</button>
+                    <button class="quick-btn" onclick="executeQuickQuery('algorithm_stats')">📊 Algorithm Stats</button>
+                    <button class="quick-btn" onclick="executeQuickQuery('algorithm_failures')">⚠️ Algorithm Issues</button>
+                    <button class="quick-btn" onclick="executeQuickQuery('statistics_resets')">🔄 Statistics Resets</button>
+                </div>
+            </div>
+
+            
+            <!-- Results Section -->
+            <div class="section">
+                <div class="results-header">
+                    <h2>📋 Query Results</h2>
+                    <div class="results-info" id="resultsInfo">Ready for query</div>
+                </div>
+                
+                <div id="resultsContainer">
+                    <div class="no-results">Enter a SQL query and click Execute to see results</div>
+                </div>
+            </div>
+
+            <!-- Custom SQL Query Section -->
+            <div class="section">
+                <h2>💻 Custom SQL Query</h2>
+                <div class="sql-editor">
+                    <textarea 
+                        id="sqlQuery" 
+                        class="sql-textarea" 
+                        placeholder="SELECT * FROM water_events ORDER BY received_at DESC LIMIT 50;"
+                    ></textarea>
+                </div>
+                
+                <div class="execute-section">
+                    <button class="execute-btn" onclick="executeCustomQuery()" id="executeBtn">
+                        Execute Query
+                    </button>
+                    
+                    <div class="export-section" id="exportSection" style="display: none;">
+                        <span>Export:</span>
+                        <a href="#" class="export-btn" id="exportCsv">CSV</a>
+                        <a href="#" class="export-btn" id="exportJson">JSON</a>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Help Section -->
+            <div class="help-section">
+                <h3>📚 Help & Examples</h3>
+                <p><strong>Available table:</strong> <code>water_events</code></p>
+                <p><strong>Columns:</strong> id, device_id, timestamp, unix_time, event_type, volume_ml, water_status, system_status, received_at, client_ip</p>
+                
+                <p><strong>Example queries:</strong></p>
+                <ul>
+                    <li><code>SELECT COUNT(*) FROM water_events;</code> - Total events count</li>
+                    <li><code>SELECT * FROM water_events WHERE event_type = 'AUTO_PUMP' LIMIT 10;</code> - Auto pump events</li>
+                    <li><code>SELECT DATE(received_at), SUM(volume_ml) FROM water_events GROUP BY DATE(received_at);</code> - Daily volume</li>
+                    <li><code>SELECT * FROM water_events WHERE water_status != 'OK';</code> - Water level issues</li>
+                </ul>
+                
+                <p><strong>Restrictions:</strong></p>
+                <ul>
+                    <li>Only SELECT queries allowed</li>
+                    <li>Maximum 1000 results</li>
+                    <li>10 second query timeout</li>
+                    <li>Only water_events table accessible</li>
+                </ul>
+
+                <p><strong>Session Management:</strong></p>
+                <ul>
+                    <li>Session timeout: 30 minutes of inactivity</li>
+                    <li>Auto-logout warning at 5 minutes remaining</li>
+                    <li>Account lockout: 8 failed attempts = 1 hour ban</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentQuery = '';
+        let currentResults = [];
+        let sessionTimer = null;
+        let warningShown = false;
+
+        // Mapowanie nazw kolumn na polskie
+        function translateColumnName(columnName) {
+            const translations = {
+                'id': 'ID',
+                'device_id': 'Urządzenie',
+                'timestamp': 'Czas',
+                'unix_time': 'Unix Time',
+                'event_type': 'Zdarzenie',
+                'volume_ml': 'Dolewka',
+                'water_status': 'Status Wody',
+                'system_status': 'Status Systemu',
+                'received_at': 'Odebrano',
+                'client_ip': 'IP Klienta',
+                'time_gap_1': 'Gap1',
+                'time_gap_2': 'Gap2',
+                'water_trigger_time': 'Czas Wody',
+                'pump_duration': 'Czas Pompy',
+                'pump_attempts': 'Próby Pompy',
+                'gap1_fail_sum': 'Suma Gap1',
+                'gap2_fail_sum': 'Suma Gap2', 
+                'water_fail_sum': 'Błędy Water (suma)',
+                'last_reset_timestamp': 'Ostatni Reset',
+                'algorithm_data': 'Dane'
+            };
+            
+            return translations[columnName] || columnName;
+        }
+
+        // Mapowanie wartości na polskie
+        function translateCellValue(columnName, value) {
+            const valueTranslations = {
+                'event_type': {
+                    'AUTO_PUMP': 'Auto Dolewka',
+                    'MANUAL_NORMAL': 'Dolewka Man',
+                    'MANUAL_EXTENDED': 'Dolewka Extra',
+                    'AUTO_CYCLE_COMPLETE': 'AutoDolewka'
+                },
+                'water_status': {
+                    'OK': 'OK',
+                    'NORMAL': 'Normalny',
+                    'LOW': 'Niski',
+                    'BOTH_LOW': 'Oba Niskie',
+                    'SENSOR1_LOW': 'Czujnik 1 Niski',
+                    'SENSOR2_LOW': 'Czujnik 2 Niski',
+                    'PARTIAL': 'Częściowy',
+                    'CHECKING': 'Sprawdzanie'
+                },
+                'system_status': {
+                    'OK': 'OK',
+                    'ERROR': 'Błąd'
+                }
+            };
+            
+            if (valueTranslations[columnName] && valueTranslations[columnName][value]) {
+                return valueTranslations[columnName][value];
+            }
+            
+            return value;
+        }
+
+        // Load session info on page load
+        function loadSessionInfo() {
+            fetch('/api/session-info')
+                .then(response => response.json())
+                .then(data => {
+                    const sessionInfo = document.getElementById('sessionInfo');
+                    const loginTime = new Date(data.login_time).toLocaleTimeString();
+                    sessionInfo.innerHTML = `
+                        🕒 ${loginTime}<br>
+                        <small>IP: ${data.client_ip}</small>
+                    `;
+                    
+                    // Start session timer
+                    startSessionTimer(data.timeout_minutes);
+                })
+                .catch(error => {
+                    console.error('Failed to load session info:', error);
+                });
+        }
+
+        function startSessionTimer(timeoutMinutes) {
+            const totalMs = timeoutMinutes * 60 * 1000;
+            const warningMs = 5 * 60 * 1000; // 5 minutes warning
+            
+            setTimeout(() => {
+                showSessionWarning();
+            }, totalMs - warningMs);
+        }
+
+        function showSessionWarning() {
+            if (warningShown) return;
+            warningShown = true;
+            
+            const warning = document.getElementById('sessionWarning');
+            warning.style.display = 'block';
+            
+            let timeLeft = 5 * 60; // 5 minutes in seconds
+            const warningTimeSpan = document.getElementById('warningTime');
+            
+            const countdown = setInterval(() => {
+                const minutes = Math.floor(timeLeft / 60);
+                const seconds = timeLeft % 60;
+                warningTimeSpan.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+                
+                timeLeft--;
+                
+                if (timeLeft < 0) {
+                    clearInterval(countdown);
+                    alert('Session expired. You will be redirected to login page.');
+                    window.location.href = '/login';
+                }
+            }, 1000);
+            
+            // Click warning to extend session (make any API call)
+            warning.onclick = () => {
+                fetch('/api/session-info')
+                    .then(() => {
+                        warning.style.display = 'none';
+                        warningShown = false;
+                        clearInterval(countdown);
+                        showAlert('Session extended successfully', 'success');
+                    });
+            };
+        }
+
+        function showAlert(message, type) {
+            const resultsContainer = document.getElementById('resultsContainer');
+            const alert = document.createElement('div');
+            alert.className = 'alert ' + type;
+            alert.textContent = message;
+            
+            // Insert at top of results container
+            resultsContainer.insertBefore(alert, resultsContainer.firstChild);
+            
+            setTimeout(() => {
+                if (resultsContainer.contains(alert)) {
+                    resultsContainer.removeChild(alert);
+                }
+            }, 5000);
+        }
+
+        function updateResultsInfo(count, limited = false) {
+            const info = document.getElementById('resultsInfo');
+            let text = `${count} rows returned`;
+            if (limited) {
+                text += ' (limited to 1000)';
+            }
+            info.textContent = text;
+
+
+        }
+
+        // function displayResults(data) {
+        //     const container = document.getElementById('resultsContainer');
+            
+        //     if (!data || data.length === 0) {
+
+
+        //         container.innerHTML = '<div class="no-results">No results found</div>';
+        //         updateResultsInfo(0);
+        //         document.getElementById('exportSection').style.display = 'none';
+        //         return;
+        //     }
+
+        //     // Create table
+        //     const table = document.createElement('table');
+        //     table.className = 'results-table';
+
+        //     // Create header
+        //     const thead = document.createElement('thead');
+        //     const headerRow = document.createElement('tr');
+            
+        //     Object.keys(data[0]).forEach(key => {
+        //         const th = document.createElement('th');
+        //         th.textContent = key;
+        //         headerRow.appendChild(th);
+        //     });
+            
+        //     thead.appendChild(headerRow);
+        //     table.appendChild(thead);
+
+
+            function displayResults(data) {
+            const container = document.getElementById('resultsContainer');
+            
+            if (!data || data.length === 0) {
+                container.innerHTML = '<div class="no-results">No results found</div>';
+                updateResultsInfo(0);
+                document.getElementById('exportSection').style.display = 'none';
+                return;
+            }
+
+            // Create table
+            const table = document.createElement('table');
+            table.className = 'results-table';
+
+            // Create header
+            const thead = document.createElement('thead');
+            const headerRow = document.createElement('tr');
+
+            const columnKeys = Object.keys(data[0]);
+            
+            columnKeys.forEach(key => {
+                const th = document.createElement('th');
+                const span = document.createElement('span');
+                span.textContent = translateColumnName(key);
+                th.appendChild(span);
+                headerRow.appendChild(th);
+            });
+            
+            thead.appendChild(headerRow);
+            table.appendChild(thead);
+
+            // Sprawdź liczbę kolumn i dodaj klasę CSS
+            if (columnKeys.length < 8) {
+                table.classList.add('few-columns');
+            }
+
+
+
+            
+            // Object.keys(data[0]).forEach(key => {
+            //     const th = document.createElement('th');
+            //     const span = document.createElement('span');
+            //     span.textContent = translateColumnName(key);
+            //     th.appendChild(span);
+            //     headerRow.appendChild(th);
+            // });
+            
+            // thead.appendChild(headerRow);
+            // table.appendChild(thead);
+
+            // Create body
+            const tbody = document.createElement('tbody');
+            
+            data.forEach(row => {
+                const tr = document.createElement('tr');
+                
+                const columnNames = Object.keys(row);
+                Object.values(row).forEach((value, index) => {
+                    const td = document.createElement('td');
+                    const columnName = columnNames[index];
+                    td.textContent = translateCellValue(columnName, value) || '';
+                    tr.appendChild(td);
+                }); 
+                
+                tbody.appendChild(tr);
+            });
+            
+            table.appendChild(tbody);
+            container.innerHTML = '';
+            container.appendChild(table);
+
+            // Show export options
+            document.getElementById('exportSection').style.display = 'flex';
+            setupExportLinks();
+        }
+
+        function setupExportLinks() {
+            const csvLink = document.getElementById('exportCsv');
+            const jsonLink = document.getElementById('exportJson');
+            
+            csvLink.onclick = () => exportData('csv');
+            jsonLink.onclick = () => exportData('json');
+        }
+
+        function exportData(format) {
+            if (!currentQuery) {
+                showAlert('No query to export', 'error');
+                return;
+            }
+
+            const url = `/api/admin-export/${format}?query=${encodeURIComponent(currentQuery)}`;
+            window.open(url, '_blank');
+        }
+
+        function executeQuery(query, isQuick = false) {
+            if (!query.trim()) {
+                showAlert('Please enter a SQL query', 'error');
+                return;
+            }
+
+            currentQuery = query;
+            
+            const container = document.getElementById('resultsContainer');
+            container.innerHTML = '<div class="loading">Executing query...</div>';
+            
+            const executeBtn = document.getElementById('executeBtn');
+            executeBtn.disabled = true;
+            executeBtn.textContent = 'Executing...';
+
+            const endpoint = isQuick ? `/api/admin-quick-query/${query}` : '/api/admin-query';
+            const requestData = isQuick ? null : { query: query };
+
+            fetch(endpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: requestData ? JSON.stringify(requestData) : null
+            })
+            .then(response => {
+                if (response.status === 401) {
+                    // Session expired
+                    alert('Session expired. Please login again.');
+                    window.location.href = '/login';
+                    return;
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data && data.success) {
+                    currentResults = data.data;
+                    displayResults(data.data);
+                    updateResultsInfo(data.count, data.limited);
+                    
+                    if (data.limited) {
+                        showAlert('Results limited to 1000 rows. Use LIMIT clause for specific ranges.', 'info');
+                    }
+                } else if (data) {
+                    showAlert(`Error: ${data.error}`, 'error');
+                    document.getElementById('exportSection').style.display = 'none';
+                }
+            })
+            .catch(error => {
+                showAlert(`Network error: ${error.message}`, 'error');
+                document.getElementById('exportSection').style.display = 'none';
+            })
+            .finally(() => {
+                executeBtn.disabled = false;
+                executeBtn.textContent = 'Execute Query';
+            });
+        }
+
+        function executeCustomQuery() {
+            const query = document.getElementById('sqlQuery').value;
+            executeQuery(query, false);
+        }
+
+        function executeQuickQuery(type) {
+            const container = document.getElementById('resultsContainer');
+            container.innerHTML = '<div class="loading">Executing query...</div>';
+            
+            fetch(`/api/admin-quick-query/${type}`)
+            .then(response => {
+                if (response.status === 401) {
+                    alert('Session expired. Please login again.');
+                    window.location.href = '/login';
+                    return;
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data && data.success) {
+                    currentResults = data.data;
+                    displayResults(data.data);
+                    updateResultsInfo(data.count);
+                    
+
+
+                    // Set current query for export
+                    currentQuery = getQuickQuerySQL(type);
+                } else if (data) {
+                    showAlert(`Error: ${data.error}`, 'error');
+                }
+            })
+            .catch(error => {
+                showAlert(`Network error: ${error.message}`, 'error');
+            });
+        }
+
+        function getQuickQuerySQL(type) {
+
+             const queries = {
+                // 'last24h': "SELECT id, timestamp, event_type, volume_ml, water_status FROM water_events WHERE received_at > datetime('now', '-24 hours') ORDER BY received_at DESC",
+                'last24h': "SELECT id  FROM water_events ORDER BY received_at DESC",
+
+                'today_stats': "SELECT event_type, COUNT(*) as count, SUM(volume_ml) as total_ml FROM water_events WHERE DATE(received_at) = DATE('now') GROUP BY event_type",
+                'all_events': "SELECT id, timestamp, event_type, volume_ml, water_status FROM water_events ORDER BY received_at DESC LIMIT 100",
+                'errors': "SELECT id, timestamp, event_type, water_status, system_status, client_ip FROM water_events WHERE water_status != 'OK' OR system_status != 'OK' ORDER BY received_at DESC",
+                'monthly': "SELECT DATE(received_at) as date, COUNT(*) as events, SUM(volume_ml) as total_ml FROM water_events WHERE received_at > datetime('now', '-30 days') GROUP BY DATE(received_at) ORDER BY date DESC",
+                'algorithm_cycles': "SELECT id, timestamp, time_gap_1, time_gap_2, water_trigger_time, pump_duration, pump_attempts, gap1_fail_sum, gap2_fail_sum, water_fail_sum, last_reset_timestamp FROM water_events WHERE event_type = 'AUTO_CYCLE_COMPLETE' ORDER BY received_at DESC LIMIT 50",
+                'algorithm_stats': "SELECT COUNT(*) as total_cycles, AVG(time_gap_1) as avg_gap1, AVG(time_gap_2) as avg_gap2, AVG(water_trigger_time) as avg_water_time, AVG(pump_duration) as avg_pump_duration, MAX(gap1_fail_sum) as max_gap1_sum, MAX(gap2_fail_sum) as max_gap2_sum, MAX(water_fail_sum) as max_water_sum, AVG(pump_attempts) as avg_attempts FROM water_events WHERE event_type = 'AUTO_CYCLE_COMPLETE' AND received_at > datetime('now', '-7 days')",
+                'algorithm_failures': "SELECT id, timestamp, time_gap_1, time_gap_2, water_trigger_time, gap1_fail_sum, gap2_fail_sum, water_fail_sum, pump_attempts, algorithm_data, last_reset_timestamp FROM water_events WHERE event_type = 'AUTO_CYCLE_COMPLETE' AND (gap1_fail_sum > 0 OR gap2_fail_sum > 0 OR water_fail_sum > 0 OR pump_attempts > 1) ORDER BY received_at DESC",
+                'statistics_resets': "SELECT id, timestamp, received_at, client_ip FROM water_events WHERE event_type = 'STATISTICS_RESET' ORDER BY received_at DESC LIMIT 20"
+
+            };
+
+            return queries[type] || '';
+        }
+
+        function logout() {
+            if (confirm('Are you sure you want to logout?')) {
+                fetch('/logout', { method: 'POST' })
+                    .then(() => {
+                        window.location.href = '/login';
+                    })
+                    .catch(() => {
+                        // Even if request fails, redirect to login
+                        window.location.href = '/login';
+                    });
+            }
+        }
+
+        // Load default query on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('sqlQuery').value = 'SELECT * FROM water_events ORDER BY received_at DESC LIMIT 20;';
+            loadSessionInfo();
+        });
+
+        // Execute query on Ctrl+Enter
+        document.getElementById('sqlQuery').addEventListener('keydown', function(e) {
+            if (e.ctrlKey && e.key === 'Enter') {
+                executeCustomQuery();
+            }
+        });
+
+        // Heartbeat to keep session alive during active use
+        setInterval(() => {
+            if (!warningShown) {
+                fetch('/api/session-info')
+                    .catch(() => {
+                        // Session might be expired
+                        console.log('Session check failed');
+                    });
+            }
+        }, 5 * 60 * 1000); // Every 5 minutes
+    </script>
+</body>
+</html>

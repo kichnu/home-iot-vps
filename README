@@ -1,0 +1,216 @@
+# ESP32-C3 Water System VPS Logger
+
+A robust Flask-based logging system for ESP32-C3 aquarium/water management devices with admin panel and real-time monitoring.
+
+## Features
+
+### Core Functionality
+- **REST API** for ESP32-C3 water system events
+- **Admin Panel** with SQL query interface and data visualization
+- **Real-time Monitoring** with health checks and statistics
+- **SQLite Database** with algorithm data support
+- **Session Management** with security features
+
+### Water System Events
+- Auto pump cycles with timing data
+- Manual pump operations (normal/extended)
+- Water level monitoring (dual sensor support)
+- Algorithm statistics and failure tracking
+- Statistics reset logging
+
+### Security & Production Ready
+- **HTTPS/SSL** support with Let's Encrypt
+- **Nginx Reverse Proxy** configuration
+- **Session-based Authentication** with lockout protection
+- **systemd Service** for automatic startup/restart
+- **Security Headers** (HSTS, CSP, etc.)
+- **Rate Limiting** and input validation
+
+### Admin Panel Features
+- Interactive SQL query interface
+- Pre-built quick queries for common tasks
+- Data export (CSV/JSON)
+- Real-time session management
+- Algorithm data analysis
+- Event statistics and monitoring
+
+## Quick Start
+
+### Prerequisites
+- Ubuntu/Debian VPS
+- Domain name with DNS pointing to server
+- Python 3.8+
+- nginx
+- certbot (for SSL)
+
+### Basic Installation
+
+```bash
+# Clone repository
+git clone https://github.com/yourusername/water-system-logger.git
+cd water-system-logger
+
+# Create virtual environment
+python3 -m venv venv
+source venv/bin/activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Run in development mode
+python app.py
+```
+
+The application will start on:
+- **ESP32 API**: http://localhost:5000
+- **Admin Panel**: http://localhost:5001
+
+### Production Deployment
+
+For complete VPS deployment with nginx, SSL, and systemd service, see **[DEPLOY.md](DEPLOY.md)**.
+
+## Configuration
+
+### Environment Variables
+Key configuration options in `app.py`:
+
+```python
+# Database and logs
+DATABASE_PATH = '/path/to/water_events.db'
+LOG_PATH = '/path/to/app.log'
+
+# Authentication
+ADMIN_PASSWORD = 'your_secure_password'  # Change this!
+VALID_TOKEN = 'your_esp32_api_token'
+VALID_DEVICE_IDS = ['ESP32_DEVICE_ID']
+
+# Security settings
+SESSION_TIMEOUT_MINUTES = 30
+MAX_FAILED_ATTEMPTS = 8
+LOCKOUT_DURATION_HOURS = 1
+```
+
+### ESP32 API Usage
+
+#### Authentication
+All API requests require Bearer token in Authorization header:
+```
+Authorization: Bearer your_esp32_api_token
+```
+
+#### Send Water Event
+```bash
+curl -X POST https://your-domain.com/api/water-events \
+  -H "Authorization: Bearer your_token" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "device_id": "ESP32_DEVICE_ID",
+    "timestamp": "2025-09-05T19:30:00",
+    "unix_time": 1725563400,
+    "event_type": "AUTO_PUMP",
+    "volume_ml": 250,
+    "water_status": "OK",
+    "system_status": "OK"
+  }'
+```
+
+#### Event Types
+- `AUTO_PUMP` - Automatic pump cycle
+- `MANUAL_NORMAL` - Manual pump operation
+- `MANUAL_EXTENDED` - Extended manual pump
+- `AUTO_CYCLE_COMPLETE` - Complete cycle with algorithm data
+- `STATISTICS_RESET` - Statistics reset event
+
+## Database Schema
+
+The SQLite database includes tables for:
+- **water_events** - Main event log with algorithm data support
+- Automatic indexing for performance
+- Algorithm failure tracking
+- Session and security management
+
+## Admin Panel
+
+Access the admin panel at `https://your-domain.com/login`
+
+**Default credentials**: 
+- Password: `admin` (change immediately in production!)
+
+### Features
+- SQL query interface with validation
+- Quick queries for common analytics
+- Data export functionality
+- Real-time session monitoring
+- Algorithm data visualization
+
+## Development
+
+### Project Structure
+```
+├── app.py              # Main Flask application
+├── requirements.txt    # Python dependencies
+├── templates/          # HTML templates
+│   ├── admin.html     # Admin panel interface
+│   └── login.html     # Login page
+├── ssl/               # SSL certificates (if using custom)
+├── start_water_system.sh  # systemd wrapper script
+└── README.md          # This file
+```
+
+### Running Tests
+```bash
+# Activate virtual environment
+source venv/bin/activate
+
+# Test health check
+curl http://localhost:5000/health
+
+# Test admin panel
+curl http://localhost:5001/login
+```
+
+## Monitoring
+
+### Health Check
+```bash
+curl https://your-domain.com/health
+```
+
+Returns JSON with system status, active sessions, and database connectivity.
+
+### Logs
+```bash
+# Application logs (if using systemd)
+sudo journalctl -u water-system -f
+
+# nginx logs
+sudo tail -f /var/log/nginx/water-system.access.log
+sudo tail -f /var/log/nginx/water-system.error.log
+```
+
+## Security Considerations
+
+- Change default admin password immediately
+- Use strong ESP32 API tokens
+- Keep SSL certificates updated
+- Monitor failed login attempts
+- Regular database backups
+- Review nginx access logs
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Commit your changes
+4. Push to the branch
+5. Create a Pull Request
+
+## Support
+
+For deployment issues, see [DEPLOY.md](DEPLOY.md) for detailed instructions.
+
+For ESP32 integration examples and troubleshooting, check the GitHub issues or create a new issue.
