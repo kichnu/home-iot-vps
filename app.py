@@ -42,6 +42,8 @@ import secrets
 import hashlib
 import time
 
+from queries_config import get_query_sql, get_all_queries_sql, QUICK_QUERIES
+
 # === KONFIGURACJA Z ZMIENNYCH ŚRODOWISKOWYCH ===
 
 # Ścieżki do plików (automatyczna detekcja lub z env)
@@ -724,6 +726,17 @@ def get_stats():
 # ADMIN AUTHENTICATION (SESSION-BASED)
 # ===============================
 
+# ADDED 
+# @app.route('/api/admin-queries-definitions')
+# @require_admin_auth
+# def get_admin_queries():
+#     """Pobierz definicje zapytań dla frontend"""
+#     queries_sql = get_all_queries_sql()
+#     return jsonify({
+#         'success': True,
+#         'queries': queries_sql
+#     })
+
 @app.route('/login')
 def login_page():
     """Strona logowania"""
@@ -784,7 +797,15 @@ def admin_dashboard():
     """Admin panel dashboard"""
     client_ip = get_real_ip()
     logging.info(f"Admin panel accessed from {client_ip}")
+    
+
+    # import json
+    # queries_sql = get_all_queries_sql()
+    # queries_json = json.dumps(queries_sql)
+    
+    # return render_template('admin.html', quick_queries_json=queries_json)
     return render_template('admin.html')
+
 
 @app.route('/api/session-info')
 @require_admin_auth
@@ -840,103 +861,73 @@ def admin_execute_query():
         logging.error(f"Admin query exception: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
+
 @app.route('/api/admin-quick-query/<query_type>')
 @require_admin_auth
-
 def admin_quick_query(query_type):
     """Wykonaj predefiniowane zapytanie"""
     
-    quick_queries = {
-        'last24h': """
-            SELECT id, timestamp, event_type, volume_ml, water_status, client_ip 
-            FROM water_events 
-            WHERE received_at > datetime('now', '-24 hours') 
-            ORDER BY received_at DESC
-        """,
+    try:
+        query = get_query_sql(query_type)
+        if not query:
+            return jsonify({'error': 'Unknown quick query type'}), 400
         
-        'algorithm_cycles': """
-            SELECT id, timestamp, time_gap_1, time_gap_2, water_trigger_time, 
-                   pump_duration, pump_attempts, gap1_fail_sum, gap2_fail_sum, water_fail_sum,
-                   last_reset_timestamp
-            FROM water_events 
-            WHERE event_type = 'AUTO_CYCLE_COMPLETE' 
-            ORDER BY received_at DESC LIMIT 50
-        """,
-        'algorithm_stats': """
-            SELECT 
-                COUNT(*) as total_cycles,
-                AVG(time_gap_1) as avg_gap1,
-                AVG(time_gap_2) as avg_gap2,
-                AVG(water_trigger_time) as avg_water_time,
-                AVG(pump_duration) as avg_pump_duration,
-                MAX(gap1_fail_sum) as max_gap1_sum,
-                MAX(gap2_fail_sum) as max_gap2_sum,
-                MAX(water_fail_sum) as max_water_sum,
-                AVG(pump_attempts) as avg_attempts
-            FROM water_events 
-            WHERE event_type = 'AUTO_CYCLE_COMPLETE' 
-                AND received_at > datetime('now', '-7 days')
-        """,
-        'algorithm_failures': """
-            SELECT id, timestamp, time_gap_1, time_gap_2, water_trigger_time,
-                   gap1_fail_sum, gap2_fail_sum, water_fail_sum, pump_attempts, algorithm_data,
-                   last_reset_timestamp
-            FROM water_events 
-            WHERE event_type = 'AUTO_CYCLE_COMPLETE' 
-                AND (gap1_fail_sum > 0 OR gap2_fail_sum > 0 OR water_fail_sum > 0 OR pump_attempts > 1)
-            ORDER BY received_at DESC
-        """,
-        'statistics_resets': """
-            SELECT id, timestamp, received_at, client_ip
-            FROM water_events 
-            WHERE event_type = 'STATISTICS_RESET' 
-            ORDER BY received_at DESC LIMIT 20
-        """,
-
-
-
-        'today_stats': """
-            SELECT event_type, COUNT(*) as count, SUM(volume_ml) as total_ml 
-            FROM water_events 
-            WHERE DATE(received_at) = DATE('now') 
-            GROUP BY event_type
-        """,
-        'all_events': """
-            SELECT id, timestamp, event_type, volume_ml, water_status 
-            FROM water_events 
-            ORDER BY received_at DESC 
-            LIMIT 100
-        """,
-        'errors': """
-            SELECT id, timestamp, event_type, water_status, system_status, client_ip 
-            FROM water_events 
-            WHERE water_status != 'OK' OR system_status != 'OK' 
-            ORDER BY received_at DESC
-        """,
-        'monthly': """
-            SELECT DATE(received_at) as date, COUNT(*) as events, SUM(volume_ml) as total_ml 
-            FROM water_events 
-            WHERE received_at > datetime('now', '-30 days') 
-            GROUP BY DATE(received_at) 
-            ORDER BY date DESC
-        """
-    }
+        success, result = execute_safe_query(query)
+        
+        if not success:
+            return jsonify({'error': f'Query error: {result}'}), 400
+        
+        return jsonify({
+            'success': True,
+            'data': result,
+            'count': len(result),
+            'query_type': query_type
+        }), 200
+        
+    except Exception as e:
+        logging.error(f"Error in admin_quick_query: {e}")
+        return jsonify({'error': 'Internal server error'}), 500    
     
-    if query_type not in quick_queries:
-        return jsonify({'error': 'Unknown quick query type'}), 400
+
+@app.route('/api/quick-export/<query_type>/<format>')
+@require_admin_auth
+def quick_export_data(query_type, format):
+    """Eksport konkretnego quick query bezpośrednio"""
     
-    query = quick_queries[query_type]
+    query = get_query_sql(query_type)
+    if not query:
+        return jsonify({'error': 'Unknown query type'}), 400
+    
     success, result = execute_safe_query(query)
-    
     if not success:
         return jsonify({'error': f'Query error: {result}'}), 400
     
-    return jsonify({
-        'success': True,
-        'data': result,
-        'count': len(result),
-        'query_type': query_type
-    }), 200
+    if format == 'csv':
+        # Export CSV
+        output = io.StringIO()
+        if result:
+            writer = csv.DictWriter(output, fieldnames=result[0].keys())
+            writer.writeheader()
+            writer.writerows(result)
+        
+        response = Response(
+            output.getvalue(),
+            mimetype='text/csv',
+            headers={'Content-Disposition': f'attachment; filename={query_type}_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv'}
+        )
+        return response
+    
+    elif format == 'json':
+        # Export JSON
+        response = Response(
+            json.dumps(result, indent=2),
+            mimetype='application/json',
+            headers={'Content-Disposition': f'attachment; filename={query_type}_{datetime.now().strftime("%Y%m%d_%H%M%S")}.json'}
+        )
+        return response
+    
+    else:
+        return jsonify({'error': 'Unsupported format. Use csv or json'}), 400
 
 @app.route('/api/admin-export/<format>')
 @require_admin_auth
