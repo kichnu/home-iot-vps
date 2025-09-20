@@ -8,12 +8,50 @@ QUICK_QUERIES = {
         'name': 'Last 24 Hours',
         'description': 'Events from last 24 hours',
         'sql': """
-            SELECT id, timestamp, event_type, volume_ml, water_status, client_ip 
+            SELECT id, device_id, timestamp, event_type, pump_duration, pump_attempts, volume_ml, time_gap_1, time_gap_2, 
+            water_trigger_time, gap1_fail_sum, gap2_fail_sum, water_fail_sum
             FROM water_events 
             WHERE received_at > datetime('now', '-24 hours') 
             ORDER BY received_at DESC
         """
     },
+
+        'all_events': {
+        'name': 'Recent Events',
+        'description': 'Last 100 events of all types',
+        'sql': """
+            SELECT id, device_id, timestamp, event_type, pump_duration, pump_attempts, volume_ml, time_gap_1, time_gap_2, 
+            water_trigger_time, gap1_fail_sum, gap2_fail_sum, water_fail_sum 
+            FROM water_events 
+            ORDER BY received_at DESC 
+            LIMIT 100
+        """
+    },
+
+
+       # 'last24h': {
+    #     'name': 'Last 24 Hours',
+    #     'description': 'Events from last 24 hours',
+    #     'sql': """
+    #         SELECT volume_ml, device_id, id, timestamp, event_type, water_status, client_ip 
+    #         FROM water_events 
+    #         WHERE received_at > datetime('now', '-24 hours') 
+    #         ORDER BY received_at DESC
+    #     """
+    # },
+
+    # 'last24h': {
+    #     'name': 'Last 24 Hours',
+    #     'description': 'Events from last 24 hours',
+    #     'sql': """
+    #         SELECT volume_ml, device_id, id, timestamp, event_type, water_status, client_ip 
+    #         FROM water_events 
+    #         WHERE received_at > datetime('now', '-24 hours') 
+    #         ORDER BY received_at DESC
+    #     """
+    # },
+
+
     
     'algorithm_cycles': {
         'name': 'Algorithm Cycles',
@@ -81,17 +119,6 @@ QUICK_QUERIES = {
             FROM water_events 
             WHERE DATE(received_at) = DATE('now') 
             GROUP BY event_type
-        """
-    },
-    
-    'all_events': {
-        'name': 'Recent Events',
-        'description': 'Last 100 events of all types',
-        'sql': """
-            SELECT id, timestamp, event_type, volume_ml, water_status 
-            FROM water_events 
-            ORDER BY received_at DESC 
-            LIMIT 100
         """
     },
     

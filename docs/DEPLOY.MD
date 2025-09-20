@@ -400,7 +400,123 @@ chmod +x backup_database.sh
 
 # Dodaj do crontab (backup co 24h)
 (crontab -l 2>/dev/null; echo "0 2 * * * /home/$(whoami)/water-system-logger/backup_database.sh") | crontab -
+
+
+## Automatyczne zarządzanie danymi
+
+### Database cleanup - usuwanie starych danych
+
+Automatyczne usuwanie rekordów starszych niż 60 dni dla utrzymania wydajności bazy danych.
+```bash
+# Utworzenie database cleanup script
+cat > db_cleanup.sh << 'EOF'
+#!/bin/bash
+
+# Konfiguracja
+DB_PATH="/home/$(whoami)/water-system-logger/water_events.db"
+LOG_FILE="/home/$(whoami)/water-system-logger/cleanup.log"
+RETENTION_DAYS=60
+
+# Sprawdź czy plik bazy istnieje
+if [ ! -f "$DB_PATH" ]; then
+    echo "$(date '+%Y-%m-%d %H:%M:%S'): ERROR - Database file not found: $DB_PATH" >> "$LOG_FILE"
+    exit 1
+fi
+
+# Sprawdź czy są stare rekordy do usunięcia
+OLD_RECORDS=$(sqlite3 "$DB_PATH" "SELECT COUNT(*) FROM water_events WHERE received_at < datetime('now', '-$RETENTION_DAYS days');")
+
+if [ "$OLD_RECORDS" -eq 0 ]; then
+    echo "$(date '+%Y-%m-%d %H:%M:%S'): INFO - No records older than $RETENTION_DAYS days found, skipping cleanup" >> "$LOG_FILE"
+    exit 0
+fi
+
+# Zapisz rozmiar pliku przed cleanup
+SIZE_BEFORE=$(stat -c%s "$DB_PATH")
+RECORDS_BEFORE=$(sqlite3 "$DB_PATH" "SELECT COUNT(*) FROM water_events;")
+
+# Wykonaj cleanup z obsługą błędów
+sqlite3 "$DB_PATH" << SQL
+.timeout 30000
+DELETE FROM water_events WHERE received_at < datetime('now', '-$RETENTION_DAYS days');
+VACUUM;
+ANALYZE;
+SQL
+
+# Sprawdź czy operacja się powiodła
+if [ $? -eq 0 ]; then
+    SIZE_AFTER=$(stat -c%s "$DB_PATH")
+    RECORDS_AFTER=$(sqlite3 "$DB_PATH" "SELECT COUNT(*) FROM water_events;")
+    DELETED_COUNT=$((RECORDS_BEFORE - RECORDS_AFTER))
+    
+    echo "$(date '+%Y-%m-%d %H:%M:%S'): SUCCESS - Database cleanup completed" >> "$LOG_FILE"
+    echo "  - Records before: $RECORDS_BEFORE, after: $RECORDS_AFTER" >> "$LOG_FILE"
+    echo "  - Old records found: $OLD_RECORDS, actually deleted: $DELETED_COUNT" >> "$LOG_FILE"
+    echo "  - File size: $SIZE_BEFORE -> $SIZE_AFTER bytes" >> "$LOG_FILE"
+    echo "  - Space saved: $((SIZE_BEFORE - SIZE_AFTER)) bytes" >> "$LOG_FILE"
+else
+    echo "$(date '+%Y-%m-%d %H:%M:%S'): ERROR - Database cleanup failed" >> "$LOG_FILE"
+    exit 1
+fi
+EOF
+
+chmod +x db_cleanup.sh
+
+# Dodaj do crontab (codziennie o 03:00)
+(crontab -l 2>/dev/null; echo "0 3 * * * /home/$(whoami)/water-system-logger/db_cleanup.sh") | crontab -
+
+### Log file cleanup - usuwanie starych logów
+
+
+# Utworzenie log cleanup script
+cat > cleanup_logs.sh << 'EOF'
+#!/bin/bash
+LOG_DIR="/home/$(whoami)/water-system-logger"
+LOG_FILE="$LOG_DIR/app.log"
+
+# Usuń logi starsze niż 7 dni
+find "$LOG_DIR" -name "app.log*" -type f -mtime +7 -delete
+
+# Opcjonalnie: wyczyść duży plik app.log jeśli > 50MB
+if [ -f "$LOG_FILE" ] && [ $(stat -c%s "$LOG_FILE") -gt 52428800 ]; then
+    # Zostaw ostatnie 1000 linii
+    tail -n 1000 "$LOG_FILE" > "$LOG_FILE.tmp" && mv "$LOG_FILE.tmp" "$LOG_FILE"
+fi
+
+echo "$(date): Log cleanup completed" >> "$LOG_DIR/cleanup.log"
+EOF
+
+chmod +x cleanup_logs.sh
+
+# Dodaj do crontab (codziennie o 02:00)
+(crontab -l 2>/dev/null; echo "0 2 * * * /home/$(whoami)/water-system-logger/cleanup_logs.sh") | crontab -
 ```
+# Wyświetl wszystkie zaplanowane zadania
+crontab -l
+
+# Sprawdź czy cron service działa
+systemctl status cron
+
+# Sprawdź logi cron
+sudo journalctl -u cron --since "24 hours ago"
+
+# Sprawdź logi cleanup operacji
+tail -20 /home/$(whoami)/water-system-logger/cleanup.log
+
+# Sprawdź rozmiar bazy danych
+ls -lh /home/$(whoami)/water-system-logger/water_events.db
+
+# Sprawdź rozmiar logów
+ls -lh /home/$(whoami)/water-system-logger/app.log*
+
+# Sprawdź statystyki bazy po cleanup
+sqlite3 /home/$(whoami)/water-system-logger/water_events.db "
+SELECT 
+    COUNT(*) as total_records,
+    MIN(received_at) as oldest_record,
+    MAX(received_at) as newest_record
+FROM water_events;"
+
 
 ### Monitoring logów
 ```bash

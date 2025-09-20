@@ -291,7 +291,6 @@
             position: sticky;
             top: 0;
             z-index: 100;
-            background: #34495e;
         }
 
         .results-table th,
@@ -306,7 +305,7 @@
         }
 
         .results-table th {
-            background: #a6b5c5;
+            /* background: #a6b5c5; */
             color: black;
             font-weight: bold;
             height: 180px;
@@ -322,9 +321,8 @@
             transform: translate(-50%, -50%) rotate(-90deg);
             transform-origin: center center;
             white-space: nowrap;
-            font-size: 12px;
+            font-size: 14px;
             font-weight: bold;
-            text-transform: uppercase;
             letter-spacing: 0.5px;
         }
 
@@ -344,21 +342,115 @@
         }
 
         .results-table td {
-            font-size: 11px;
+            font-size: 12px;
             max-width: 100px;
-            padding: 6px 4px;
+            padding: 4px 4px;
         }
 
-        .results-table tbody tr:hover {
-            background: #f8f9fa;
+        .th-id{
+            background-color: #a6b5c5;
         }
 
-        .results-table tbody tr:nth-child(even) {
-            background: #fafbfc;
+        .th-device_id{
+            background-color: #a6b5c5;
         }
 
-        .results-table tbody tr:nth-child(even):hover {
-            background: #f1f3f4;
+        .th-timestamp{
+            background-color: #a6b5c5;
+        }
+
+        .th-event_type{
+            background-color: #a6b5c5;
+        }
+
+        .th-pump_duration{
+            background-color: rgb(106, 191, 248);
+        }
+
+        .th-pump_attempts{
+            background-color: rgb(106, 191, 248);
+        }
+        
+        .th-volume_ml{
+            background-color: rgb(106, 191, 248);
+        }
+
+        .th-time_gap_1{
+            background-color: rgb(106, 191, 248);
+        }
+
+        .th-time_gap_2{
+            background-color: rgb(106, 191, 248);
+        }
+
+        .th-water_trigger_time{
+            background-color: rgb(106, 191, 248);
+        }
+
+        .th-gap1_fail_sum{
+            background-color: rgb(252, 107, 107);
+        }
+
+        .th-gap2_fail_sum{
+            background-color: rgb(252, 107, 107);
+        }
+
+        .th-water_fail_sum{
+            background-color: rgb(252, 107, 107);
+        }
+
+        .th-client_ip{
+            background-color: #a6b5c5;
+        }
+
+        .th-water_status{
+            background-color: #a6b5c5;
+        }
+
+        .th-system_status{
+            background-color: #a6b5c5;
+        }
+
+        .th-received_at{
+            background-color: #a6b5c5;
+        }
+
+        .th-last_reset_timestamp{
+            background-color: #a6b5c5;
+        }
+
+        .th-unik_time{
+            background-color: #a6b5c5;
+        }
+
+        .th-algorithm_data{
+            background-color: #a6b5c5;
+        }
+
+
+
+        .row-auto-pump {
+            background-color: #e3f2fd; /* jasny niebieski */
+        }
+
+        .row-manual-normal {
+            background-color: #e8f5e8; /* jasny zielony */
+        }
+
+        .row-manual-extended {
+            background-color: #fd8f8f; /* jasny pomarańczowy */
+        }
+
+        .row-auto-complete {
+            background-color: #f3e5f5; /* jasny fioletowy */
+        }
+
+        .row-stats-reset {
+            background-color: #979797; /* jasny żółty dla resetów */
+        }
+
+        .row-default {
+            background-color: white; /* domyślny szary */
         }
 
         /* Responsywność dla małych ekranów */
@@ -545,8 +637,8 @@
          
                 <div class="quick-queries">
                     <button class="quick-btn" onclick="executeQuickQuery('last24h')">Last 24 Hours</button>
-                    <button class="quick-btn" onclick="executeQuickQuery('today_stats')">Today's Stats</button>
                     <button class="quick-btn" onclick="executeQuickQuery('all_events')">All Events</button>
+                    <button class="quick-btn" onclick="executeQuickQuery('today_stats')">Today's Stats</button>
                     <button class="quick-btn" onclick="executeQuickQuery('errors')">Errors</button>
                     <button class="quick-btn" onclick="executeQuickQuery('monthly')">Daily Summary</button>
                     <button class="quick-btn" onclick="executeQuickQuery('algorithm_cycles')">🤖 Algorithm Cycles</button>
@@ -629,7 +721,7 @@
    
         // let QUICK_QUERIES = {};
         // let currentQuery = '';
-        let currentResults = [];
+        // let currentResults = [];
         let currentQueryType = '';
         let sessionTimer = null;
         let warningShown = false;
@@ -651,29 +743,29 @@
 
         // loadQueries();
 
-        // Mapowanie nazw kolumn na polskie
+        // Mapowanie nazw kolumn
         function translateColumnName(columnName) {
             const translations = {
                 'id': 'ID',
-                'device_id': 'Urządzenie',
-                'timestamp': 'Czas',
+                'device_id': 'Device-ID',
+                'timestamp': 'Event Time',
                 'unix_time': 'Unix Time',
-                'event_type': 'Zdarzenie',
-                'volume_ml': 'Dolewka',
-                'water_status': 'Status Wody',
-                'system_status': 'Status Systemu',
-                'received_at': 'Odebrano',
-                'client_ip': 'IP Klienta',
-                'time_gap_1': 'Gap1',
-                'time_gap_2': 'Gap2',
-                'water_trigger_time': 'Czas Wody',
-                'pump_duration': 'Czas Pompy',
+                'event_type': 'Event Type',
+                'volume_ml': 'Water Filled Volume ',
+                'water_status': 'Water Status',
+                'system_status': 'System Status',
+                'received_at': 'Log Receipt Time',
+                'client_ip': 'Client IP',
+                'time_gap_1': 'Turn-ON Delay',
+                'time_gap_2': 'Turn-OFF Delay',
+                'water_trigger_time': 'Water fill Delay',
+                'pump_duration': 'Pump Run Time',
                 'pump_attempts': 'Próby Pompy',
-                'gap1_fail_sum': 'Suma Gap1',
-                'gap2_fail_sum': 'Suma Gap2', 
-                'water_fail_sum': 'Błędy Water (suma)',
-                'last_reset_timestamp': 'Ostatni Reset',
-                'algorithm_data': 'Dane'
+                'gap1_fail_sum': 'Turn-ON Error Count',
+                'gap2_fail_sum': 'Turn-OFF Error Count', 
+                'water_fail_sum': 'Water Fill Error',
+                'last_reset_timestamp': 'Last Reset Timestamp',
+                'algorithm_data': 'Event Log'
             };
             
             return translations[columnName] || columnName;
@@ -681,26 +773,32 @@
 
         // Mapowanie wartości na polskie
         function translateCellValue(columnName, value) {
+
+            if (columnName === 'timestamp' && value) {
+                return value.replace(/\s*\([^)]*\)\s*$/, '');
+            }
+
             const valueTranslations = {
                 'event_type': {
-                    'AUTO_PUMP': 'Auto Dolewka',
-                    'MANUAL_NORMAL': 'Dolewka Man',
-                    'MANUAL_EXTENDED': 'Dolewka Extra',
-                    'AUTO_CYCLE_COMPLETE': 'AutoDolewka'
+                    'AUTO_PUMP': 'AUTO PUMP',
+                    'MANUAL_NORMAL': 'MANUAL FILL',
+                    'MANUAL_EXTENDED': 'PUMP CALIBRATION',
+                    'AUTO_CYCLE_COMPLETE': 'AUTO FILL',
+                    'STATISTICS_RESET': 'STATISTICS RESET'
                 },
                 'water_status': {
                     'OK': 'OK',
-                    'NORMAL': 'Normalny',
-                    'LOW': 'Niski',
-                    'BOTH_LOW': 'Oba Niskie',
-                    'SENSOR1_LOW': 'Czujnik 1 Niski',
-                    'SENSOR2_LOW': 'Czujnik 2 Niski',
-                    'PARTIAL': 'Częściowy',
-                    'CHECKING': 'Sprawdzanie'
+                    'NORMAL': 'NORMAL',
+                    'LOW': 'LOW  ',
+                    'BOTH_LOW': 'BOTH LOW',
+                    'SENSOR1_LOW': 'SENSOR 1 LOW',
+                    'SENSOR2_LOW': 'SENSOR 2 LOW',
+                    'PARTIAL': 'PARTIAL',
+                    'CHECKING': 'CHECKING'
                 },
                 'system_status': {
-                    'OK': 'OK',
-                    'ERROR': 'Błąd'
+                    'OK': 'SYSTEM OK',
+                    'ERROR': 'ERROR'
                 }
             };
             
@@ -806,7 +904,7 @@
 
 
 
-            function displayResults(data) {
+        function displayResults(data) {
             const container = document.getElementById('resultsContainer');
             
             if (!data || data.length === 0) {
@@ -824,15 +922,55 @@
             const thead = document.createElement('thead');
             const headerRow = document.createElement('tr');
 
-            const columnKeys = Object.keys(data[0]);
+            // const columnKeys = Object.keys(data[0]);
+
+            const preferredColumnOrder = [
+                'id','device_id', 'timestamp', 'event_type', 'pump_duration', 'pump_attempts', 'volume_ml', 'time_gap_1', 'time_gap_2'
+                , 'water_trigger_time','gap1_fail_sum', 'gap2_fail_sum', 'water_fail_sum',
+                 'client_ip', 'water_status', 'system_status', 'received_at', 'last_reset_timestamp',
+                , 'unix_time', 'algorithm_data', 
+            ];
+
+            const columnCategories = {
+                'id': 'th-id',
+                'device_id': 'th-device_id',
+                'timestamp': 'th-timestamp',
+                'event_type': 'th-event_type',
+                'pump_duration': 'th-pump_duration',
+                'pump_attempts': 'th-pump_attempts',
+                'volume_ml': 'th-volume_ml',
+                'time_gap_1': 'th-time_gap_1',
+                'time_gap_2': 'th-time_gap_2',
+                'water_trigger_time': 'th-water_trigger_time',
+                'gap1_fail_sum': 'th-gap1_fail_sum',
+                'gap2_fail_sum': 'th-gap2_fail_sum',
+                'water_fail_sum': 'th-water_fail_sum',
+                'client_ip': 'th-client_ip',
+                'water_status': 'th-water_status',
+                'system_status': 'th-system_status',
+                'received_at': 'th-received_at',
+                'last_reset_timestamp': 'th-last_reset_timestamp',
+                'unix_time': 'th-unik_time',
+                'algorithm_data': 'th-algorithm_data',
+            };
+
+            const availableColumns = Object.keys(data[0]);
+            const columnKeys = preferredColumnOrder.filter(col => availableColumns.includes(col))
+                             .concat(availableColumns.filter(col => !preferredColumnOrder.includes(col)));
             
             columnKeys.forEach(key => {
                 const th = document.createElement('th');
                 const span = document.createElement('span');
                 span.textContent = translateColumnName(key);
                 th.appendChild(span);
+
+                const categoryClass = columnCategories[key] || 'th-default';
+                th.classList.add(categoryClass);
+
                 headerRow.appendChild(th);
             });
+
+
             
             thead.appendChild(headerRow);
             table.appendChild(thead);
@@ -849,14 +987,20 @@
             
             data.forEach(row => {
                 const tr = document.createElement('tr');
-                
-                const columnNames = Object.keys(row);
-                Object.values(row).forEach((value, index) => {
+
+                    const eventType = row['event_type'];
+                if (eventType) {
+                    const rowClass = getEventTypeRowClass(eventType);
+                    tr.classList.add(rowClass);
+                }
+
+                columnKeys.forEach(columnName => {
                     const td = document.createElement('td');
-                    const columnName = columnNames[index];
-                    td.textContent = translateCellValue(columnName, value) || '';
+                    const value = row[columnName];
+                    const translatedValue = translateCellValue(columnName, value);
+                    td.textContent = (translatedValue !== null && translatedValue !== undefined) ? translatedValue : '';
                     tr.appendChild(td);
-                }); 
+                });
                 
                 tbody.appendChild(tr);
             });
@@ -868,6 +1012,18 @@
             // Show export options
             document.getElementById('exportSection').style.display = 'flex';
             setupExportLinks();
+        }
+
+        function getEventTypeRowClass(eventType) {
+            const eventTypeClasses = {
+                'AUTO_PUMP': 'row-auto-pump',
+                'MANUAL_NORMAL': 'row-manual-normal', 
+                'MANUAL_EXTENDED': 'row-manual-extended',
+                'AUTO_CYCLE_COMPLETE': 'row-auto-complete',
+                'STATISTICS_RESET': 'row-stats-reset'
+            };
+
+            return eventTypeClasses[eventType] || 'row-default';
         }
 
         function setupExportLinks() {
@@ -925,7 +1081,7 @@
             })
             .then(data => {
                 if (data && data.success) {
-                    currentResults = data.data;
+                    // currentResults = data.data;
                     displayResults(data.data);
                     updateResultsInfo(data.count, data.limited);
                     
@@ -969,7 +1125,7 @@
             })
             .then(data => {
                 if (data && data.success) {
-                    currentResults = data.data;
+                    // currentResults = data.data;
                     displayResults(data.data);
                     updateResultsInfo(data.count);
                     
