@@ -9,82 +9,75 @@ QUICK_QUERIES = {
         'description': 'Events from last 24 hours',
         'sql': """
             SELECT id, device_id, timestamp, event_type, pump_duration, pump_attempts, volume_ml, time_gap_1, time_gap_2, 
-            water_trigger_time, gap1_fail_sum, gap2_fail_sum, water_fail_sum
+            water_trigger_time, gap1_fail_sum, gap2_fail_sum, water_fail_sum, system_status
             FROM water_events 
             WHERE received_at > datetime('now', '-24 hours') 
             ORDER BY received_at DESC
         """
     },
 
-        'all_events': {
-        'name': 'Recent Events',
+    'last_100_events': {
+        'name': 'last_100_events',
         'description': 'Last 100 events of all types',
         'sql': """
             SELECT id, device_id, timestamp, event_type, pump_duration, pump_attempts, volume_ml, time_gap_1, time_gap_2, 
-            water_trigger_time, gap1_fail_sum, gap2_fail_sum, water_fail_sum 
+            water_trigger_time, gap1_fail_sum, gap2_fail_sum, water_fail_sum, system_status
             FROM water_events 
             ORDER BY received_at DESC 
             LIMIT 100
         """
     },
 
-
-       # 'last24h': {
-    #     'name': 'Last 24 Hours',
-    #     'description': 'Events from last 24 hours',
-    #     'sql': """
-    #         SELECT volume_ml, device_id, id, timestamp, event_type, water_status, client_ip 
-    #         FROM water_events 
-    #         WHERE received_at > datetime('now', '-24 hours') 
-    #         ORDER BY received_at DESC
-    #     """
-    # },
-
-    # 'last24h': {
-    #     'name': 'Last 24 Hours',
-    #     'description': 'Events from last 24 hours',
-    #     'sql': """
-    #         SELECT volume_ml, device_id, id, timestamp, event_type, water_status, client_ip 
-    #         FROM water_events 
-    #         WHERE received_at > datetime('now', '-24 hours') 
-    #         ORDER BY received_at DESC
-    #     """
-    # },
-
-
-    
-    'algorithm_cycles': {
-        'name': 'Algorithm Cycles',
-        'description': 'Recent algorithm cycle completions',
+    'all_events': {
+        'name': 'all_events',
+        'description': 'All events of all types',
         'sql': """
-            SELECT id, timestamp, time_gap_1, time_gap_2, water_trigger_time, 
-                   pump_duration, pump_attempts, gap1_fail_sum, gap2_fail_sum, water_fail_sum,
-                   last_reset_timestamp
+            SELECT id, device_id, timestamp, event_type, pump_duration, pump_attempts, volume_ml, time_gap_1, time_gap_2, 
+            water_trigger_time, gap1_fail_sum, gap2_fail_sum, water_fail_sum, system_status
             FROM water_events 
-            WHERE event_type = 'AUTO_CYCLE_COMPLETE' 
-            ORDER BY received_at DESC LIMIT 50
+            ORDER BY received_at DESC 
         """
     },
-    
+
+    'errors': {
+        'name': 'System Errors',
+        'description': 'Events with error status',
+        'sql': """
+            SELECT id, device_id, timestamp, event_type, pump_duration, pump_attempts, volume_ml, time_gap_1, time_gap_2, 
+            water_trigger_time, gap1_fail_sum, gap2_fail_sum, water_fail_sum, system_status
+            FROM water_events 
+            WHERE system_status == 'ERROR' 
+            ORDER BY received_at DESC
+        """
+    },
+
+    'other_events': {
+        'name': 'other_events',
+        'description': 'Other events',
+        'sql': """
+            SELECT id, device_id, timestamp, event_type, pump_duration, pump_attempts, volume_ml, time_gap_1, time_gap_2, 
+            water_trigger_time, gap1_fail_sum, gap2_fail_sum, water_fail_sum, system_status
+            FROM water_events 
+            WHERE event_type == 'MANUAL_NORMAL' OR event_type == 'MANUAL_EXTENDED' OR event_type == 'STATISTICS_RESET'
+            ORDER BY received_at DESC
+        """
+    },
+
     'algorithm_stats': {
-        'name': 'Algorithm Statistics',
-        'description': 'Weekly algorithm performance stats',
-        'sql': """
-            SELECT 
-                COUNT(*) as total_cycles,
-                AVG(time_gap_1) as avg_gap1,
-                AVG(time_gap_2) as avg_gap2,
-                AVG(water_trigger_time) as avg_water_time,
-                AVG(pump_duration) as avg_pump_duration,
-                MAX(gap1_fail_sum) as max_gap1_sum,
-                MAX(gap2_fail_sum) as max_gap2_sum,
-                MAX(water_fail_sum) as max_water_sum,
-                AVG(pump_attempts) as avg_attempts
-            FROM water_events 
-            WHERE event_type = 'AUTO_CYCLE_COMPLETE' 
-                AND received_at > datetime('now', '-7 days')
-        """
-    },
+    'name': 'Algorithm Statistics',
+    'description': 'Weekly algorithm performance stats',
+    'sql': """
+        SELECT 
+            COUNT(*) as Total_Cycles,
+            ROUND(AVG(time_gap_1), 2) as Avg_Turn_ON_Delay,
+            ROUND(AVG(time_gap_2), 2) as Avg_Turn_OFF_Delay,
+            ROUND(AVG(water_trigger_time), 2) as Avg_Wter_Fill_Delay,
+            ROUND(AVG(pump_duration), 2) as Avg_Pump_Run_Time
+        FROM water_events 
+        WHERE event_type = 'AUTO_CYCLE_COMPLETE' 
+            AND received_at > datetime('now', '-7 days')
+    """
+},
     
     'algorithm_failures': {
         'name': 'Algorithm Issues',
@@ -122,28 +115,7 @@ QUICK_QUERIES = {
         """
     },
     
-    'errors': {
-        'name': 'System Errors',
-        'description': 'Events with error status',
-        'sql': """
-            SELECT id, timestamp, event_type, water_status, system_status, client_ip 
-            FROM water_events 
-            WHERE water_status != 'OK' OR system_status != 'OK' 
-            ORDER BY received_at DESC
-        """
-    },
-    
-    'monthly': {
-        'name': 'Daily Summary',
-        'description': 'Daily event counts for last 30 days',
-        'sql': """
-            SELECT DATE(received_at) as date, COUNT(*) as events, SUM(volume_ml) as total_ml 
-            FROM water_events 
-            WHERE received_at > datetime('now', '-30 days') 
-            GROUP BY DATE(received_at) 
-            ORDER BY date DESC
-        """
-    }
+
 }
 
 def get_query_sql(query_type):

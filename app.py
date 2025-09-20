@@ -216,8 +216,6 @@ def init_database():
     
     logging.info("Database initialized successfully with algorithm support")
 
-
-
 def cleanup_expired_sessions():
     """Czyści wygasłe sesje i lockout"""
     now = time.time()
@@ -325,7 +323,6 @@ def validate_session():
     
     # Update last activity
     session_data['last_activity'] = time.time()
-    
     return True
 
 def destroy_session():
@@ -472,8 +469,6 @@ def validate_event_data(data):
     if data['water_status'] not in valid_water_statuses:
         return False, f"Invalid water_status: {data['water_status']}"
     
-
-
     if data['event_type'] == 'AUTO_CYCLE_COMPLETE':
         algorithm_fields = ['time_gap_1', 'time_gap_2', 'water_trigger_time', 
                           'pump_duration', 'pump_attempts', 'gap1_fail_sum', 'gap2_fail_sum', 'water_fail_sum']
@@ -500,15 +495,12 @@ def validate_event_data(data):
     
     return True, "Valid"
 
-
-
 # ===============================
 # ESP32 API ENDPOINTS (HTTP ONLY - PORT 5000)
 # ===============================
 
 @app.route('/api/water-events', methods=['POST'])
 @require_auth
-
 
 def receive_water_event():
     """Endpoint do odbierania zdarzeń z ESP32-C3"""
@@ -578,9 +570,6 @@ def receive_water_event():
             algorithm_values['algorithm_data']
         ))
 
-
-
-        
         event_id = cursor.lastrowid
         conn.commit()
         conn.close()
@@ -609,8 +598,6 @@ def receive_water_event():
     except Exception as e:
         logging.error(f"Unexpected error: {e}")
         return jsonify({'error': 'Internal server error'}), 500
-
-
 
 @app.route('/api/events', methods=['GET'])
 @require_auth
@@ -722,21 +709,6 @@ def get_stats():
         logging.error(f"Error fetching stats: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
-# ===============================
-# ADMIN AUTHENTICATION (SESSION-BASED)
-# ===============================
-
-# ADDED 
-# @app.route('/api/admin-queries-definitions')
-# @require_admin_auth
-# def get_admin_queries():
-#     """Pobierz definicje zapytań dla frontend"""
-#     queries_sql = get_all_queries_sql()
-#     return jsonify({
-#         'success': True,
-#         'queries': queries_sql
-#     })
-
 @app.route('/login')
 def login_page():
     """Strona logowania"""
@@ -798,12 +770,6 @@ def admin_dashboard():
     client_ip = get_real_ip()
     logging.info(f"Admin panel accessed from {client_ip}")
     
-
-    # import json
-    # queries_sql = get_all_queries_sql()
-    # queries_json = json.dumps(queries_sql)
-    
-    # return render_template('admin.html', quick_queries_json=queries_json)
     return render_template('admin.html')
 
 

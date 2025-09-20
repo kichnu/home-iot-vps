@@ -1,8 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <!-- TEST v2 -->
-
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>🐠 Water System Admin Panel</title>
@@ -16,8 +14,6 @@
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-          
-
             min-height: 100vh;
             padding: 20px;
         }
@@ -219,54 +215,6 @@
             font-size: 14px;
         }
 
-
-
-
-        /* .results-table {
-            width: 100%;
-            border-collapse: collapse;
-            background: white;
-            border-radius: 8px;
-            overflow: hidden;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            max-height: 500px;
-            overflow-y: auto;
-            display: block;
-        }
-
-        .results-table thead,
-        .results-table tbody {
-            display: table;
-            width: 100%;
-            table-layout: fixed;
-        }
-
-        .results-table th,
-        .results-table td {
-            padding: 12px;
-            text-align: left;
-            border-bottom: 1px solid #ecf0f1;
-            word-wrap: break-word;
-            overflow-wrap: break-word;
-        }
-
-        .results-table th {
-            background: #34495e;
-            color: white;
-            font-weight: bold;
-            position: sticky;
-            top: 0;
-            z-index: 10;
-        }
-
-        .results-table tbody tr:hover {
-            background: #f8f9fa;
-        }
-
-        .results-table tbody tr:nth-child(even) {
-            background: #fafbfc;
-        } */
-
         .results-table {
             width: 100%;
             border-collapse: collapse;
@@ -305,7 +253,6 @@
         }
 
         .results-table th {
-            /* background: #a6b5c5; */
             color: black;
             font-weight: bold;
             height: 180px;
@@ -326,7 +273,6 @@
             letter-spacing: 0.5px;
         }
 
-                /* Gdy kolumn jest mało (<8) - wyłącz obrót */
         .results-table.few-columns th {
             height: auto;
             min-height: 40px;
@@ -399,6 +345,7 @@
             background-color: rgb(252, 107, 107);
         }
 
+
         .th-client_ip{
             background-color: #a6b5c5;
         }
@@ -428,32 +375,32 @@
         }
 
 
+        
 
         .row-auto-pump {
-            background-color: #e3f2fd; /* jasny niebieski */
+            background-color: #e3f2fd; 
         }
 
         .row-manual-normal {
-            background-color: #e8f5e8; /* jasny zielony */
+            background-color: #e8f5e8; 
         }
 
         .row-manual-extended {
-            background-color: #fd8f8f; /* jasny pomarańczowy */
+            background-color: #fd8f8f;
         }
 
         .row-auto-complete {
-            background-color: #f3e5f5; /* jasny fioletowy */
+            background-color: #f3e5f5;
         }
 
         .row-stats-reset {
-            background-color: #979797; /* jasny żółty dla resetów */
+            background-color: #979797;
         }
 
         .row-default {
-            background-color: white; /* domyślny szary */
+            background-color: white;
         }
 
-        /* Responsywność dla małych ekranów */
         @media (max-width: 768px) {
             .results-table th {
                 height: 60px;
@@ -614,9 +561,6 @@
         ⚠️ Session expires in <span id="warningTime">5</span> minutes. Click to extend.
     </div>
 
-
-
-
     <div class="container">
         <div class="header">
             <h1>🐠 Aquarium System Database - Admin Panel</h1>
@@ -637,18 +581,14 @@
          
                 <div class="quick-queries">
                     <button class="quick-btn" onclick="executeQuickQuery('last24h')">Last 24 Hours</button>
+                    <button class="quick-btn" onclick="executeQuickQuery('last_100_events')">Last 100 Events</button>
                     <button class="quick-btn" onclick="executeQuickQuery('all_events')">All Events</button>
-                    <button class="quick-btn" onclick="executeQuickQuery('today_stats')">Today's Stats</button>
                     <button class="quick-btn" onclick="executeQuickQuery('errors')">Errors</button>
-                    <button class="quick-btn" onclick="executeQuickQuery('monthly')">Daily Summary</button>
-                    <button class="quick-btn" onclick="executeQuickQuery('algorithm_cycles')">🤖 Algorithm Cycles</button>
-                    <button class="quick-btn" onclick="executeQuickQuery('algorithm_stats')">📊 Algorithm Stats</button>
-                    <button class="quick-btn" onclick="executeQuickQuery('algorithm_failures')">⚠️ Algorithm Issues</button>
-                    <button class="quick-btn" onclick="executeQuickQuery('statistics_resets')">🔄 Statistics Resets</button>
+                    <button class="quick-btn" onclick="executeQuickQuery('other_events')">Other_Events</button>
+                    <button class="quick-btn" onclick="executeQuickQuery('algorithm_stats')">Algorithm Stats</button>
                 </div>
             </div>
 
-            
             <!-- Results Section -->
             <div class="section">
                 <div class="results-header">
@@ -690,7 +630,6 @@
                 <h3>📚 Help & Examples</h3>
                 <p><strong>Available table:</strong> <code>water_events</code></p>
                 <p><strong>Columns:</strong> id, device_id, timestamp, unix_time, event_type, volume_ml, water_status, system_status, received_at, client_ip</p>
-                
                 <p><strong>Example queries:</strong></p>
                 <ul>
                     <li><code>SELECT COUNT(*) FROM water_events;</code> - Total events count</li>
@@ -698,7 +637,6 @@
                     <li><code>SELECT DATE(received_at), SUM(volume_ml) FROM water_events GROUP BY DATE(received_at);</code> - Daily volume</li>
                     <li><code>SELECT * FROM water_events WHERE water_status != 'OK';</code> - Water level issues</li>
                 </ul>
-                
                 <p><strong>Restrictions:</strong></p>
                 <ul>
                     <li>Only SELECT queries allowed</li>
@@ -706,7 +644,6 @@
                     <li>10 second query timeout</li>
                     <li>Only water_events table accessible</li>
                 </ul>
-
                 <p><strong>Session Management:</strong></p>
                 <ul>
                     <li>Session timeout: 30 minutes of inactivity</li>
@@ -719,31 +656,10 @@
 
     <script>
    
-        // let QUICK_QUERIES = {};
-        // let currentQuery = '';
-        // let currentResults = [];
         let currentQueryType = '';
         let sessionTimer = null;
         let warningShown = false;
 
-        // Załaduj zapytania z API na starcie
-        // async function loadQueries() {
-        //     try {
-        //         const response = await fetch('/api/admin-queries-definitions');
-        //         const data = await response.json();
-        //         if (data.success) {
-        //             QUICK_QUERIES = data.queries;
-        //             console.log('✅ Queries loaded from API:', Object.keys(QUICK_QUERIES));
-        //         }
-        //     } catch (error) {
-        //         console.error('❌ Failed to load queries:', error);
-        //     }
-        // }
-
-
-        // loadQueries();
-
-        // Mapowanie nazw kolumn
         function translateColumnName(columnName) {
             const translations = {
                 'id': 'ID',
@@ -767,7 +683,6 @@
                 'last_reset_timestamp': 'Last Reset Timestamp',
                 'algorithm_data': 'Event Log'
             };
-            
             return translations[columnName] || columnName;
         }
 
@@ -805,7 +720,6 @@
             if (valueTranslations[columnName] && valueTranslations[columnName][value]) {
                 return valueTranslations[columnName][value];
             }
-            
             return value;
         }
 
@@ -852,7 +766,6 @@
                 const minutes = Math.floor(timeLeft / 60);
                 const seconds = timeLeft % 60;
                 warningTimeSpan.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-                
                 timeLeft--;
                 
                 if (timeLeft < 0) {
@@ -897,12 +810,7 @@
                 text += ' (limited to 1000)';
             }
             info.textContent = text;
-
-
         }
-
-
-
 
         function displayResults(data) {
             const container = document.getElementById('resultsContainer');
@@ -923,11 +831,10 @@
             const headerRow = document.createElement('tr');
 
             // const columnKeys = Object.keys(data[0]);
-
             const preferredColumnOrder = [
                 'id','device_id', 'timestamp', 'event_type', 'pump_duration', 'pump_attempts', 'volume_ml', 'time_gap_1', 'time_gap_2'
-                , 'water_trigger_time','gap1_fail_sum', 'gap2_fail_sum', 'water_fail_sum',
-                 'client_ip', 'water_status', 'system_status', 'received_at', 'last_reset_timestamp',
+                , 'water_trigger_time','gap1_fail_sum', 'gap2_fail_sum', 'water_fail_sum', 'system_status',
+                 'client_ip', 'water_status', 'received_at', 'last_reset_timestamp',
                 , 'unix_time', 'algorithm_data', 
             ];
 
@@ -970,8 +877,6 @@
                 headerRow.appendChild(th);
             });
 
-
-            
             thead.appendChild(headerRow);
             table.appendChild(thead);
 
@@ -979,8 +884,6 @@
             if (columnKeys.length < 8) {
                 table.classList.add('few-columns');
             }
-
-
 
             // Create body
             const tbody = document.createElement('tbody');
@@ -1001,7 +904,6 @@
                     td.textContent = (translatedValue !== null && translatedValue !== undefined) ? translatedValue : '';
                     tr.appendChild(td);
                 });
-                
                 tbody.appendChild(tr);
             });
             
@@ -1022,14 +924,12 @@
                 'AUTO_CYCLE_COMPLETE': 'row-auto-complete',
                 'STATISTICS_RESET': 'row-stats-reset'
             };
-
             return eventTypeClasses[eventType] || 'row-default';
         }
 
         function setupExportLinks() {
             const csvLink = document.getElementById('exportCsv');
             const jsonLink = document.getElementById('exportJson');
-            
             csvLink.onclick = () => exportData('csv');
             jsonLink.onclick = () => exportData('json');
         }
@@ -1052,14 +952,11 @@
             }
 
             // currentQuery = query;
-            
             const container = document.getElementById('resultsContainer');
             container.innerHTML = '<div class="loading">Executing query...</div>';
-            
             const executeBtn = document.getElementById('executeBtn');
             executeBtn.disabled = true;
             executeBtn.textContent = 'Executing...';
-
             const endpoint = isQuick ? `/api/admin-quick-query/${query}` : '/api/admin-query';
             const requestData = isQuick ? null : { query: query };
 
@@ -1088,6 +985,7 @@
                     if (data.limited) {
                         showAlert('Results limited to 1000 rows. Use LIMIT clause for specific ranges.', 'info');
                     }
+
                 } else if (data) {
                     showAlert(`Error: ${data.error}`, 'error');
                     document.getElementById('exportSection').style.display = 'none';
@@ -1110,7 +1008,7 @@
 
         function executeQuickQuery(type) {
 
-            currentQueryType = type; // DODAJ TĘ LINIĘ
+            currentQueryType = type;
             const container = document.getElementById('resultsContainer');
             container.innerHTML = '<div class="loading">Executing query...</div>';
             
@@ -1129,10 +1027,6 @@
                     displayResults(data.data);
                     updateResultsInfo(data.count);
                     
-
-
-                    // Set current query for export
-                    // currentQuery = getQuickQuerySQL(type);
                 } else if (data) {
                     showAlert(`Error: ${data.error}`, 'error');
                 }
