@@ -10,6 +10,7 @@ Odbiera i przechowuje zdarzenia z systemu podlewania
 import os
 import sys
 
+
 # Ładowanie .env file dla developmentu (przed importami Flask)
 try:
     from dotenv import load_dotenv
@@ -141,8 +142,127 @@ logging.info(f"Session timeout: {SESSION_TIMEOUT_MINUTES} minutes")
 logging.info(f"Valid device IDs: {VALID_DEVICE_IDS}")
 logging.info(f"Log level: {log_level}")
 logging.info("Environment variables loaded successfully ✅")
+
+
+# TEPMPORARY FUCTION!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+def fix_device_type_migration():
+    """Fix device_type values for existing data"""
+    conn = sqlite3.connect(DATABASE_PATH)
+    cursor = conn.cursor()
+    
+    try:
+        from device_config import get_device_type
+        
+        # Find records with incorrect device_type
+        cursor.execute("""
+            SELECT DISTINCT device_id, device_type 
+            FROM water_events 
+            WHERE device_type != ? OR device_type IS NULL
+        """, ('water_system',))
+        
+        incorrect_records = cursor.fetchall()
+        
+        for device_id, current_device_type in incorrect_records:
+            correct_device_type = get_device_type(device_id)
+            
+            if current_device_type != correct_device_type:
+                cursor.execute("""
+                    UPDATE water_events 
+                    SET device_type = ? 
+                    WHERE device_id = ? AND (device_type = ? OR device_type IS NULL)
+                """, (correct_device_type, device_id, current_device_type))
+                
+                updated = cursor.rowcount
+                logging.info(f"Fixed {updated} records: {device_id} '{current_device_type}' → '{correct_device_type}'")
+        
+        conn.commit()
+        logging.info("Device type migration fix completed")
+        
+    except Exception as e:
+        logging.error(f"Migration fix failed: {e}")
+        conn.rollback()
+    finally:
+        conn.close()
+
+
+# def init_database():
+#     """Inicjalizacja bazy danych SQLite z rozszerzonymi kolumnami algorytmicznymi"""
+#     os.makedirs(os.path.dirname(DATABASE_PATH), exist_ok=True)
+    
+#     conn = sqlite3.connect(DATABASE_PATH)
+#     cursor = conn.cursor()
+    
+#     # Sprawdź czy tabela istnieje i ma stare kolumny
+#     cursor.execute("PRAGMA table_info(water_events)")
+#     existing_columns = [row[1] for row in cursor.fetchall()]
+    
+#     if not existing_columns:
+#         # Nowa instalacja - utwórz tabelę z wszystkimi kolumnami
+#         cursor.execute('''
+#             CREATE TABLE water_events (
+#                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+#                 device_id TEXT NOT NULL,
+#                 timestamp TEXT NOT NULL,
+#                 unix_time INTEGER NOT NULL,
+#                 event_type TEXT NOT NULL,
+#                 volume_ml INTEGER NOT NULL,
+#                 water_status TEXT NOT NULL,
+#                 system_status TEXT NOT NULL,
+#                 received_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+#                 client_ip TEXT,
+                
+#                 -- Rozszerzone kolumny algorytmiczne (v2.0)
+#                 time_gap_1 INTEGER DEFAULT NULL,
+#                 time_gap_2 INTEGER DEFAULT NULL,
+#                 water_trigger_time INTEGER DEFAULT NULL,
+#                 pump_duration INTEGER DEFAULT NULL,
+#                 pump_attempts INTEGER DEFAULT NULL,
+#                 gap1_fail_sum INTEGER DEFAULT NULL,
+#                 gap2_fail_sum INTEGER DEFAULT NULL,
+#                 water_fail_sum INTEGER DEFAULT NULL,
+#                 algorithm_data TEXT DEFAULT NULL
+#             )
+#         ''')
+#         logging.info("Created new water_events table with algorithm columns")
+        
+#     else:
+#         # Istniejąca tabela - dodaj nowe kolumny jeśli nie istnieją
+#         new_columns = [
+#             'time_gap_1 INTEGER DEFAULT NULL',
+#             'time_gap_2 INTEGER DEFAULT NULL', 
+#             'water_trigger_time INTEGER DEFAULT NULL',
+#             'pump_duration INTEGER DEFAULT NULL',
+#             'pump_attempts INTEGER DEFAULT NULL',
+#             'gap1_fail_sum INTEGER DEFAULT NULL',
+#             'gap2_fail_sum INTEGER DEFAULT NULL', 
+#             'water_fail_sum INTEGER DEFAULT NULL',
+#             'last_reset_timestamp INTEGER DEFAULT NULL',
+#             'algorithm_data TEXT DEFAULT NULL'
+#         ]
+        
+#         for column_def in new_columns:
+#             column_name = column_def.split()[0]
+#             if column_name not in existing_columns:
+#                 try:
+#                     cursor.execute(f'ALTER TABLE water_events ADD COLUMN {column_def}')
+#                     logging.info(f"Added column: {column_name}")
+#                 except sqlite3.Error as e:
+#                     logging.warning(f"Could not add column {column_name}: {e}")
+    
+#     # Indeksy dla lepszej wydajności
+#     cursor.execute('CREATE INDEX IF NOT EXISTS idx_device_id ON water_events(device_id)')
+#     cursor.execute('CREATE INDEX IF NOT EXISTS idx_timestamp ON water_events(unix_time)')
+#     cursor.execute('CREATE INDEX IF NOT EXISTS idx_event_type ON water_events(event_type)')
+#     cursor.execute('CREATE INDEX IF NOT EXISTS idx_algorithm ON water_events(time_gap_1, gap1_fail_sum)')
+    
+#     conn.commit()
+#     conn.close()
+    
+#     logging.info("Database initialized successfully with algorithm support")
+
 def init_database():
-    """Inicjalizacja bazy danych SQLite z rozszerzonymi kolumnami algorytmicznymi"""
+    """Inicjalizacja bazy danych SQLite z obsługą multi-device architecture"""
     os.makedirs(os.path.dirname(DATABASE_PATH), exist_ok=True)
     
     conn = sqlite3.connect(DATABASE_PATH)
@@ -153,21 +273,22 @@ def init_database():
     existing_columns = [row[1] for row in cursor.fetchall()]
     
     if not existing_columns:
-        # Nowa instalacja - utwórz tabelę z wszystkimi kolumnami
+        # Nowa instalacja - utwórz tabelę z wszystkimi kolumnami (multi-device ready)
         cursor.execute('''
             CREATE TABLE water_events (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 device_id TEXT NOT NULL,
+                device_type TEXT DEFAULT NULL,
                 timestamp TEXT NOT NULL,
                 unix_time INTEGER NOT NULL,
                 event_type TEXT NOT NULL,
-                volume_ml INTEGER NOT NULL,
-                water_status TEXT NOT NULL,
+                volume_ml INTEGER DEFAULT NULL,
+                water_status TEXT DEFAULT NULL,
                 system_status TEXT NOT NULL,
                 received_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 client_ip TEXT,
                 
-                -- Rozszerzone kolumny algorytmiczne (v2.0)
+                -- Water system specific columns
                 time_gap_1 INTEGER DEFAULT NULL,
                 time_gap_2 INTEGER DEFAULT NULL,
                 water_trigger_time INTEGER DEFAULT NULL,
@@ -176,14 +297,27 @@ def init_database():
                 gap1_fail_sum INTEGER DEFAULT NULL,
                 gap2_fail_sum INTEGER DEFAULT NULL,
                 water_fail_sum INTEGER DEFAULT NULL,
-                algorithm_data TEXT DEFAULT NULL
+                algorithm_data TEXT DEFAULT NULL,
+                last_reset_timestamp INTEGER DEFAULT NULL,
+                
+                -- Temperature sensor specific columns  
+                temperature REAL DEFAULT NULL,
+                humidity REAL DEFAULT NULL,
+                
+                -- Security system specific columns
+                zone_status TEXT DEFAULT NULL,
+                motion_detected BOOLEAN DEFAULT NULL
             )
         ''')
-        logging.info("Created new water_events table with algorithm columns")
+        logging.info("Created new multi-device water_events table")
         
     else:
         # Istniejąca tabela - dodaj nowe kolumny jeśli nie istnieją
         new_columns = [
+            # Multi-device core
+            'device_type TEXT DEFAULT NULL',
+            
+            # Algorithm columns (mogą już istnieć)
             'time_gap_1 INTEGER DEFAULT NULL',
             'time_gap_2 INTEGER DEFAULT NULL', 
             'water_trigger_time INTEGER DEFAULT NULL',
@@ -193,7 +327,15 @@ def init_database():
             'gap2_fail_sum INTEGER DEFAULT NULL', 
             'water_fail_sum INTEGER DEFAULT NULL',
             'last_reset_timestamp INTEGER DEFAULT NULL',
-            'algorithm_data TEXT DEFAULT NULL'
+            'algorithm_data TEXT DEFAULT NULL',
+            
+            # Temperature sensor columns
+            'temperature REAL DEFAULT NULL',
+            'humidity REAL DEFAULT NULL',
+            
+            # Security system columns  
+            'zone_status TEXT DEFAULT NULL',
+            'motion_detected BOOLEAN DEFAULT NULL'
         ]
         
         for column_def in new_columns:
@@ -204,17 +346,51 @@ def init_database():
                     logging.info(f"Added column: {column_name}")
                 except sqlite3.Error as e:
                     logging.warning(f"Could not add column {column_name}: {e}")
+        
+        # Populate device_type for existing data (one-time operation)
+        cursor.execute("SELECT COUNT(*) FROM water_events WHERE device_type IS NULL")
+        untyped_records = cursor.fetchone()[0]
+        
+        if untyped_records > 0:
+            logging.info(f"Populating device_type for {untyped_records} existing records...")
+            
+            # Import device mapping
+            try:
+                from device_config import get_device_type
+                
+                # Update existing records based on device_id
+                cursor.execute("SELECT DISTINCT device_id FROM water_events WHERE device_type IS NULL")
+                device_ids = [row[0] for row in cursor.fetchall()]
+                
+                for device_id in device_ids:
+                    device_type = get_device_type(device_id)
+                    cursor.execute(
+                        "UPDATE water_events SET device_type = ? WHERE device_id = ? AND device_type IS NULL",
+                        (device_type, device_id)
+                    )
+                    updated = cursor.rowcount
+                    logging.info(f"Updated {updated} records: {device_id} → {device_type}")
+                    
+            except ImportError:
+                logging.warning("device_config not available, setting device_type to device_id")
+                cursor.execute("UPDATE water_events SET device_type = device_id WHERE device_type IS NULL")
     
-    # Indeksy dla lepszej wydajności
+    # Indeksy dla multi-device performance
     cursor.execute('CREATE INDEX IF NOT EXISTS idx_device_id ON water_events(device_id)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_device_type ON water_events(device_type)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_device_id_type ON water_events(device_id, device_type)')
     cursor.execute('CREATE INDEX IF NOT EXISTS idx_timestamp ON water_events(unix_time)')
     cursor.execute('CREATE INDEX IF NOT EXISTS idx_event_type ON water_events(event_type)')
-    cursor.execute('CREATE INDEX IF NOT EXISTS idx_algorithm ON water_events(time_gap_1, gap1_fail_sum)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_received_at ON water_events(received_at)')
     
     conn.commit()
     conn.close()
+
+    # Fix any incorrect device_type values!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    fix_device_type_migration()
+    # Fix any incorrect device_type values!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     
-    logging.info("Database initialized successfully with algorithm support")
+    logging.info("Database initialized successfully with multi-device architecture")
 
 def cleanup_expired_sessions():
     """Czyści wygasłe sesje i lockout"""
@@ -499,9 +675,141 @@ def validate_event_data(data):
 # ESP32 API ENDPOINTS (HTTP ONLY - PORT 5000)
 # ===============================
 
+# @app.route('/api/water-events', methods=['POST'])
+# @require_auth
+
+# def receive_water_event():
+#     """Endpoint do odbierania zdarzeń z ESP32-C3"""
+#     from device_config import get_device_type, get_device_config
+    
+#     client_ip = get_real_ip()
+    
+#     try:
+#         # Sprawdź Content-Type
+#         if request.content_type != 'application/json':
+#             logging.warning(f"Invalid Content-Type from {client_ip}: {request.content_type}")
+#             return jsonify({'error': 'Content-Type must be application/json'}), 400
+        
+#         # Pobierz dane JSON
+#         data = request.get_json()
+        
+#         if not data:
+#             logging.warning(f"No JSON data received from {client_ip}")
+#             return jsonify({'error': 'No JSON data provided'}), 400
+        
+#         # Walidacja danych
+#         is_valid, error_msg = validate_event_data(data)
+#         if not is_valid:
+#             logging.warning(f"Invalid data from {client_ip}: {error_msg}")
+#             return jsonify({'error': error_msg}), 400
+
+
+        
+#         # Zapisz do bazy danych z obsługą danych algorytmicznych
+#         conn = sqlite3.connect(DATABASE_PATH)
+#         cursor = conn.cursor()
+        
+#         # Przygotuj dane algorytmiczne (opcjonalne)
+#         # Przygotuj dane algorytmiczne (opcjonalne)
+#         algorithm_values = {}
+#         algorithm_fields = ['time_gap_1', 'time_gap_2', 'water_trigger_time', 
+#                           'pump_duration', 'pump_attempts', 'gap1_fail_sum', 'gap2_fail_sum', 'water_fail_sum', 
+#                           'last_reset_timestamp', 'algorithm_data']
+        
+#         for field in algorithm_fields:
+#             algorithm_values[field] = data.get(field, None)
+
+#         device_type = get_device_type(data['device_id'])
+        
+#         cursor.execute('''
+#             INSERT INTO water_events 
+#             (device_id, device_type, timestamp, unix_time, event_type, volume_ml, 
+#              water_status, system_status, client_ip,
+#              time_gap_1, time_gap_2, water_trigger_time, pump_duration, pump_attempts,
+#              gap1_fail_sum, gap2_fail_sum, water_fail_sum, last_reset_timestamp, algorithm_data)
+#             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+#         ''', (
+#             data['device_id'],
+#             device_type,
+#             data['timestamp'],
+#             data['unix_time'],
+#             data['event_type'],
+#             data['volume_ml'],
+#             data['water_status'],
+#             data['system_status'],
+#             client_ip,
+#             algorithm_values['time_gap_1'],
+#             algorithm_values['time_gap_2'],
+#             algorithm_values['water_trigger_time'],
+#             algorithm_values['pump_duration'],
+#             algorithm_values['pump_attempts'],
+#             algorithm_values['gap1_fail_sum'],
+#             algorithm_values['gap2_fail_sum'],
+#             algorithm_values['water_fail_sum'],
+#             algorithm_values['last_reset_timestamp'],
+#             algorithm_values['algorithm_data']
+#         ))
+
+#         event_id = cursor.lastrowid
+#         conn.commit()
+#         conn.close()
+        
+#         # Loguj pomyślne zdarzenie
+#         logging.info(
+#             f"Event saved [ID: {event_id}] - Device: {data['device_id']}, "
+#             f"Type: {data['event_type']}, Volume: {data['volume_ml']}ml, "
+#             f"Status: {data['water_status']}, IP: {client_ip}"
+#         )
+        
+#         return jsonify({
+#             'success': True,
+#             'event_id': event_id,
+#             'message': 'Event recorded successfully'
+#         }), 200
+        
+#     except json.JSONDecodeError:
+#         logging.error(f"JSON decode error from {client_ip}")
+#         return jsonify({'error': 'Invalid JSON format'}), 400
+    
+#     except sqlite3.Error as e:
+#         logging.error(f"Database error: {e}")
+#         return jsonify({'error': 'Database error'}), 500
+    
+#     except Exception as e:
+#         logging.error(f"Unexpected error: {e}")
+#         return jsonify({'error': 'Internal server error'}), 500
+
+# TEPMPORARY ENDPOINT!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+@app.route('/api/debug-device-types')
+@require_admin_auth
+def debug_device_types():
+    """Debug endpoint to check device_type distribution"""
+    conn = sqlite3.connect(DATABASE_PATH)
+    cursor = conn.cursor()
+    
+    cursor.execute("""
+        SELECT device_type, device_id, COUNT(*) as count
+        FROM water_events 
+        GROUP BY device_type, device_id
+        ORDER BY count DESC
+    """)
+    
+    results = []
+    for row in cursor.fetchall():
+        results.append({
+            'device_type': row[0],
+            'device_id': row[1], 
+            'count': row[2]
+        })
+    
+    conn.close()
+    return jsonify(results)
+# TEPMPORARY ENDPOINT!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+
+
 @app.route('/api/water-events', methods=['POST'])
 @require_auth
-
 def receive_water_event():
     """Endpoint do odbierania zdarzeń z ESP32-C3"""
     
@@ -526,13 +834,19 @@ def receive_water_event():
             logging.warning(f"Invalid data from {client_ip}: {error_msg}")
             return jsonify({'error': error_msg}), 400
 
+        # Determine device type from device_id (temporary fallback)
+        # if data['device_id'] == 'DOLEWKA':
+        #     device_type = 'water_system'
+        # else:
+        #     device_type = data['device_id'].lower()  # fallback
 
-        
+        from device_config import get_device_type
+        device_type = get_device_type(data['device_id'])
+
         # Zapisz do bazy danych z obsługą danych algorytmicznych
         conn = sqlite3.connect(DATABASE_PATH)
         cursor = conn.cursor()
         
-        # Przygotuj dane algorytmiczne (opcjonalne)
         # Przygotuj dane algorytmiczne (opcjonalne)
         algorithm_values = {}
         algorithm_fields = ['time_gap_1', 'time_gap_2', 'water_trigger_time', 
@@ -544,13 +858,14 @@ def receive_water_event():
         
         cursor.execute('''
             INSERT INTO water_events 
-            (device_id, timestamp, unix_time, event_type, volume_ml, 
+            (device_id, device_type, timestamp, unix_time, event_type, volume_ml, 
              water_status, system_status, client_ip,
              time_gap_1, time_gap_2, water_trigger_time, pump_duration, pump_attempts,
              gap1_fail_sum, gap2_fail_sum, water_fail_sum, last_reset_timestamp, algorithm_data)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
             data['device_id'],
+            device_type,  # 🆕 NOWA WARTOŚĆ
             data['timestamp'],
             data['unix_time'],
             data['event_type'],
@@ -576,7 +891,7 @@ def receive_water_event():
         
         # Loguj pomyślne zdarzenie
         logging.info(
-            f"Event saved [ID: {event_id}] - Device: {data['device_id']}, "
+            f"Event saved [ID: {event_id}] - Device: {data['device_id']} ({device_type}), "
             f"Type: {data['event_type']}, Volume: {data['volume_ml']}ml, "
             f"Status: {data['water_status']}, IP: {client_ip}"
         )
@@ -762,16 +1077,134 @@ def logout():
 # ADMIN PANEL ENDPOINTS (SESSION AUTH)
 # ===============================
 
+# @app.route('/')
+# @app.route('/admin')
+# @require_admin_auth
+# def admin_dashboard():
+#     """Admin panel dashboard"""
+#     client_ip = get_real_ip()
+#     logging.info(f"Admin panel accessed from {client_ip}")
+    
+#     return render_template('admin.html')
+
 @app.route('/')
-@app.route('/admin')
+@app.route('/admin')  
 @require_admin_auth
 def admin_dashboard():
-    """Admin panel dashboard"""
-    client_ip = get_real_ip()
-    logging.info(f"Admin panel accessed from {client_ip}")
-    
-    return render_template('admin.html')
+    """Redirect to dashboard for device type selection"""
+    return redirect(url_for('device_dashboard'))
 
+@app.route('/dashboard')
+@require_admin_auth
+def device_dashboard():
+    """Multi-device dashboard with auto-discovery"""
+    client_ip = get_real_ip()
+    
+    try:
+        conn = sqlite3.connect(DATABASE_PATH)
+        cursor = conn.cursor()
+        
+        # Import valid device types
+        from device_config import DEVICE_TYPES
+        valid_device_types = list(DEVICE_TYPES.keys())
+        
+        # Placeholders for SQL IN clause
+        placeholders = ','.join(['?' for _ in valid_device_types])
+        
+        # Auto-discover available device types from database (only valid ones)
+        cursor.execute(f"""
+            SELECT 
+                device_type,
+                COUNT(*) as event_count,
+                COUNT(DISTINCT device_id) as device_count,
+                MAX(received_at) as last_activity,
+                MIN(received_at) as first_activity
+            FROM water_events 
+            WHERE device_type IN ({placeholders}) 
+            GROUP BY device_type 
+            ORDER BY event_count DESC
+        """, valid_device_types)
+        
+        discovered_types = []
+        for row in cursor.fetchall():
+            device_type, event_count, device_count, last_activity, first_activity = row
+            
+            # Get device type configuration
+            from device_config import get_device_config
+            config = get_device_config(device_type)
+            
+            discovered_types.append({
+                'type': device_type,
+                'name': config.get('name', device_type.title()),
+                'icon': config.get('icon', '📱'),
+                'color': config.get('color', '#95a5a6'),
+                'description': config.get('description', f'{device_type} devices'),
+                'event_count': event_count,
+                'device_count': device_count,
+                'last_activity': last_activity,
+                'first_activity': first_activity,
+                'status': 'active' if last_activity else 'inactive'
+            })
+        
+        # Get recent activity across all devices (only valid device types)
+        cursor.execute(f"""
+            SELECT device_id, device_type, event_type, received_at, volume_ml, system_status
+            FROM water_events 
+            WHERE device_type IN ({placeholders})
+            ORDER BY received_at DESC 
+            LIMIT 10
+        """, valid_device_types)
+        
+        recent_activity = []
+        for row in cursor.fetchall():
+            device_id, device_type, event_type, received_at, volume_ml, system_status = row
+            recent_activity.append({
+                'device_id': device_id,
+                'device_type': device_type,
+                'event_type': event_type,
+                'received_at': received_at,
+                'volume_ml': volume_ml,
+                'system_status': system_status
+            })
+        
+        conn.close()
+        
+        logging.info(f"Dashboard accessed from {client_ip} - {len(discovered_types)} device types discovered")
+        
+        return render_template('dashboard.html', 
+                             device_types=discovered_types, 
+                             recent_activity=recent_activity)
+        
+    except Exception as e:
+        logging.error(f"Dashboard error: {e}")
+        return jsonify({'error': 'Dashboard error'}), 500
+
+@app.route('/admin/<device_type>')
+@require_admin_auth  
+def device_context_admin(device_type):
+    """Device-specific admin interface"""
+    from device_config import get_device_config, DEVICE_TYPES
+    
+    # Validate device type
+    if device_type not in DEVICE_TYPES:
+        return jsonify({'error': f'Unknown device type: {device_type}'}), 404
+    
+    # Get device configuration
+    config = get_device_config(device_type)
+    client_ip = get_real_ip()
+    
+    logging.info(f"Device context admin accessed: {device_type} from {client_ip}")
+    
+    # Pass device context to template
+    return render_template('admin.html', 
+                         device_context={
+                             'type': device_type,
+                             'name': config.get('name', device_type.title()),
+                             'icon': config.get('icon', '📱'),
+                             'color': config.get('color', '#95a5a6'),
+                             'columns': config.get('columns', []),
+                             'event_types': config.get('event_types', [])
+                         })        
 
 @app.route('/api/session-info')
 @require_admin_auth
@@ -827,6 +1260,62 @@ def admin_execute_query():
         logging.error(f"Admin query exception: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
+@app.route('/api/admin-device-query/<device_type>/<query_type>')
+@require_admin_auth
+def admin_device_query(device_type, query_type):
+    """Execute device-contextual predefined query"""
+    from device_config import DEVICE_TYPES
+    from queries_config import get_query_sql
+    
+    # Validate device type
+    if device_type not in DEVICE_TYPES:
+        return jsonify({'error': f'Unknown device type: {device_type}'}), 400
+    
+    try:
+        query = get_query_sql(query_type, device_type)
+        if not query:
+            return jsonify({'error': f'Unknown query type: {query_type} for device: {device_type}'}), 400
+        
+        success, result = execute_safe_query(query)
+        
+        if not success:
+            return jsonify({'error': f'Query error: {result}'}), 400
+        
+        return jsonify({
+            'success': True,
+            'data': result,
+            'count': len(result),
+            'device_type': device_type,
+            'query_type': query_type
+        }), 200
+        
+    except Exception as e:
+        logging.error(f"Error in admin_device_query: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/api/available-queries/<device_type>')
+@require_admin_auth  
+def get_device_queries(device_type):
+    """Get available queries for device type"""
+    from device_config import DEVICE_TYPES
+    from queries_config import get_available_queries
+    
+    if device_type not in DEVICE_TYPES:
+        return jsonify({'error': f'Unknown device type: {device_type}'}), 400
+    
+    try:
+        queries = get_available_queries(device_type)
+        return jsonify({
+            'success': True,
+            'device_type': device_type,
+            'queries': queries
+        }), 200
+        
+    except Exception as e:
+        logging.error(f"Error getting device queries: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+
 
 @app.route('/api/admin-quick-query/<query_type>')
 @require_admin_auth
@@ -855,12 +1344,54 @@ def admin_quick_query(query_type):
         return jsonify({'error': 'Internal server error'}), 500    
     
 
-@app.route('/api/quick-export/<query_type>/<format>')
-@require_admin_auth
-def quick_export_data(query_type, format):
-    """Eksport konkretnego quick query bezpośrednio"""
+# @app.route('/api/quick-export/<query_type>/<format>')
+# @require_admin_auth
+# def quick_export_data(query_type, format):
+#     """Eksport konkretnego quick query bezpośrednio"""
     
-    query = get_query_sql(query_type)
+#     query = get_query_sql(query_type)
+#     if not query:
+#         return jsonify({'error': 'Unknown query type'}), 400
+    
+#     success, result = execute_safe_query(query)
+#     if not success:
+#         return jsonify({'error': f'Query error: {result}'}), 400
+    
+#     if format == 'csv':
+#         # Export CSV
+#         output = io.StringIO()
+#         if result:
+#             writer = csv.DictWriter(output, fieldnames=result[0].keys())
+#             writer.writeheader()
+#             writer.writerows(result)
+        
+#         response = Response(
+#             output.getvalue(),
+#             mimetype='text/csv',
+#             headers={'Content-Disposition': f'attachment; filename={query_type}_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv'}
+#         )
+#         return response
+    
+#     elif format == 'json':
+#         # Export JSON
+#         response = Response(
+#             json.dumps(result, indent=2),
+#             mimetype='application/json',
+#             headers={'Content-Disposition': f'attachment; filename={query_type}_{datetime.now().strftime("%Y%m%d_%H%M%S")}.json'}
+#         )
+#         return response
+    
+#     else:
+#         return jsonify({'error': 'Unsupported format. Use csv or json'}), 400
+
+@app.route('/api/quick-export/<query_type>/<format>')
+@app.route('/api/quick-export/<device_type>/<query_type>/<format>')
+@require_admin_auth
+def quick_export_data(query_type, format, device_type=None):
+    """Export query data with optional device context"""
+    from queries_config import get_query_sql
+    
+    query = get_query_sql(query_type, device_type)
     if not query:
         return jsonify({'error': 'Unknown query type'}), 400
     
@@ -868,8 +1399,15 @@ def quick_export_data(query_type, format):
     if not success:
         return jsonify({'error': f'Query error: {result}'}), 400
     
+    # Generate filename with device context
+    filename_parts = []
+    if device_type:
+        filename_parts.append(device_type)
+    filename_parts.append(query_type)
+    filename_parts.append(datetime.now().strftime("%Y%m%d_%H%M%S"))
+    filename = '_'.join(filename_parts)
+    
     if format == 'csv':
-        # Export CSV
         output = io.StringIO()
         if result:
             writer = csv.DictWriter(output, fieldnames=result[0].keys())
@@ -879,16 +1417,15 @@ def quick_export_data(query_type, format):
         response = Response(
             output.getvalue(),
             mimetype='text/csv',
-            headers={'Content-Disposition': f'attachment; filename={query_type}_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv'}
+            headers={'Content-Disposition': f'attachment; filename={filename}.csv'}
         )
         return response
     
     elif format == 'json':
-        # Export JSON
         response = Response(
             json.dumps(result, indent=2),
             mimetype='application/json',
-            headers={'Content-Disposition': f'attachment; filename={query_type}_{datetime.now().strftime("%Y%m%d_%H%M%S")}.json'}
+            headers={'Content-Disposition': f'attachment; filename={filename}.json'}
         )
         return response
     
@@ -1002,3 +1539,10 @@ if __name__ == '__main__':
     
     # Uruchom Admin server w głównym wątku
     run_admin_server()
+
+
+
+
+
+
+    

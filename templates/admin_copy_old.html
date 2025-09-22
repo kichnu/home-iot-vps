@@ -3,13 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>
-        {% if device_context %}
-            {{ device_context.icon }} {{ device_context.name }} - Admin Panel
-        {% else %}
-            🐠 Water System Admin Panel
-        {% endif %}
-    </title>
+    <title>🐠 Water System Admin Panel</title>
     <style>
         * {
             margin: 0;
@@ -17,24 +11,11 @@
             box-sizing: border-box;
         }
 
-        /* CSS Variables dla device context - ustawiane przez JavaScript */
-        :root {
-            --device-color: #3498db;
-            --device-color-light: rgba(52, 152, 219, 0.2);
-            --device-color-medium: rgba(52, 152, 219, 0.4);
-            --device-color-dark: rgba(52, 152, 219, 0.8);
-        }
-
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             padding: 20px;
-        }
-
-        /* Device-specific body classes */
-        body.device-context {
-            background: linear-gradient(135deg, var(--device-color-light) 0%, var(--device-color-medium) 100%);
         }
 
         .container {
@@ -47,7 +28,7 @@
         }
 
         .header {
-            background: linear-gradient(135deg, var(--device-color) 0%, var(--device-color-dark) 100%);
+            background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
             color: white;
             padding: 20px 30px;
             position: relative;
@@ -70,23 +51,6 @@
             display: flex;
             gap: 15px;
             align-items: center;
-        }
-
-        .dashboard-btn {
-            background: rgba(255,255,255,0.2);
-            color: white;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: bold;
-            transition: all 0.3s;
-            text-decoration: none;
-        }
-
-        .dashboard-btn:hover {
-            background: rgba(255,255,255,0.3);
-            transform: translateY(-1px);
         }
 
         .session-info {
@@ -125,7 +89,7 @@
             color: #2c3e50;
             margin-bottom: 15px;
             font-size: 20px;
-            border-bottom: 2px solid var(--device-color);
+            border-bottom: 2px solid #3498db;
             padding-bottom: 5px;
         }
 
@@ -137,7 +101,7 @@
         }
 
         .quick-btn {
-            background: linear-gradient(135deg, var(--device-color), var(--device-color-dark));
+            background: linear-gradient(135deg, #3498db, #2980b9);
             color: white;
             border: none;
             padding: 12px 20px;
@@ -150,7 +114,7 @@
 
         .quick-btn:hover {
             transform: translateY(-2px);
-            box-shadow: 0 5px 15px var(--device-color-medium);
+            box-shadow: 0 5px 15px rgba(52, 152, 219, 0.4);
         }
 
         .quick-btn:active {
@@ -174,7 +138,7 @@
 
         .sql-textarea:focus {
             outline: none;
-            border-color: var(--device-color);
+            border-color: #3498db;
             background: white;
         }
 
@@ -329,31 +293,89 @@
             padding: 4px 4px;
         }
 
-        /* Device-type specific column styling */
-        .th-id, .th-device_id, .th-timestamp, .th-event_type, .th-received_at {
+        .th-id{
             background-color: #a6b5c5;
         }
 
-        .th-pump_duration, .th-pump_attempts, .th-volume_ml, .th-time_gap_1, 
-        .th-time_gap_2, .th-water_trigger_time {
+        .th-device_id{
+            background-color: #a6b5c5;
+        }
+
+        .th-timestamp{
+            background-color: #a6b5c5;
+        }
+
+        .th-event_type{
+            background-color: #a6b5c5;
+        }
+
+        .th-pump_duration{
             background-color: rgb(106, 191, 248);
         }
 
-        .th-gap1_fail_sum, .th-gap2_fail_sum, .th-water_fail_sum {
+        .th-pump_attempts{
+            background-color: rgb(106, 191, 248);
+        }
+        
+        .th-volume_ml{
+            background-color: rgb(106, 191, 248);
+        }
+
+        .th-time_gap_1{
+            background-color: rgb(106, 191, 248);
+        }
+
+        .th-time_gap_2{
+            background-color: rgb(106, 191, 248);
+        }
+
+        .th-water_trigger_time{
+            background-color: rgb(106, 191, 248);
+        }
+
+        .th-gap1_fail_sum{
             background-color: rgb(252, 107, 107);
         }
 
-        .th-temperature, .th-humidity {
-            background-color: #f39c12;
+        .th-gap2_fail_sum{
+            background-color: rgb(252, 107, 107);
         }
 
-        .th-zone_status, .th-motion_detected {
-            background-color: #95a5a6;
+        .th-water_fail_sum{
+            background-color: rgb(252, 107, 107);
         }
 
-        .th-device_type {
-            background-color: #9b59b6;
+
+        .th-client_ip{
+            background-color: #a6b5c5;
         }
+
+        .th-water_status{
+            background-color: #a6b5c5;
+        }
+
+        .th-system_status{
+            background-color: #a6b5c5;
+        }
+
+        .th-received_at{
+            background-color: #a6b5c5;
+        }
+
+        .th-last_reset_timestamp{
+            background-color: #a6b5c5;
+        }
+
+        .th-unik_time{
+            background-color: #a6b5c5;
+        }
+
+        .th-algorithm_data{
+            background-color: #a6b5c5;
+        }
+
+
+        
 
         .row-auto-pump {
             background-color: #e3f2fd; 
@@ -380,38 +402,18 @@
         }
 
         @media (max-width: 768px) {
-            .content {
-                padding: 20px;
+            .results-table th {
+                height: 60px;
+                min-height: 60px;
             }
-
-            .header-controls {
-                position: static;
-                margin-top: 15px;
-                justify-content: flex-start;
+            
+            .results-table th span {
+                font-size: 10px;
             }
-
-            .quick-queries {
-                grid-template-columns: 1fr;
-            }
-
-            .execute-section {
-                flex-direction: column;
-                align-items: stretch;
-            }
-
-            .execute-btn,
-            .export-btn {
-                width: 100%;
-                margin: 5px 0;
-            }
-
-            .results-table {
-                font-size: 12px;
-            }
-
-            .results-table th,
+            
             .results-table td {
-                padding: 8px 4px;
+                font-size: 10px;
+                padding: 4px 2px;
             }
         }
 
@@ -458,7 +460,7 @@
             width: 20px;
             height: 20px;
             border: 3px solid #f3f3f3;
-            border-top: 3px solid var(--device-color);
+            border-top: 3px solid #3498db;
             border-radius: 50%;
             animation: spin 1s linear infinite;
             margin-left: 10px;
@@ -489,6 +491,42 @@
             z-index: 1000;
         }
 
+        @media (max-width: 768px) {
+            .content {
+                padding: 20px;
+            }
+
+            .header-controls {
+                position: static;
+                margin-top: 15px;
+                justify-content: flex-start;
+            }
+
+            .quick-queries {
+                grid-template-columns: 1fr;
+            }
+
+            .execute-section {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .execute-btn,
+            .export-btn {
+                width: 100%;
+                margin: 5px 0;
+            }
+
+            .results-table {
+                font-size: 12px;
+            }
+
+            .results-table th,
+            .results-table td {
+                padding: 8px 4px;
+            }
+        }
+
         .help-section {
             background: #ecf0f1;
             padding: 20px;
@@ -516,33 +554,17 @@
         .help-section li {
             margin: 5px 0;
         }
-</style>
+    </style>
 </head>
-<body {% if device_context %}class="device-type-{{ device_context.type }}"{% endif %}>
+<body>
     <div class="session-warning" id="sessionWarning">
         ⚠️ Session expires in <span id="warningTime">5</span> minutes. Click to extend.
     </div>
 
     <div class="container">
         <div class="header">
-            <h1>
-                {% if device_context %}
-                    {{ device_context.icon }} {{ device_context.name }} - Admin Panel
-                {% else %}
-                    🐠 Aquarium System Database - Admin Panel
-                {% endif %}
-            </h1>
-            <div class="subtitle">
-                {% if device_context %}
-                    {{ device_context.description }} - Device Management Interface
-                {% else %}
-                    Multi-device IoT management interface
-                {% endif %}
-            </div>
+            <h1>🐠 Aquarium System Database - Admin Panel</h1>
             <div class="header-controls">
-                <a href="/dashboard" class="dashboard-btn">
-                    🏠 Dashboard
-                </a>
                 <div class="session-info" id="sessionInfo">
                     Loading session info...
                 </div>
@@ -555,14 +577,15 @@
         <div class="content">
             <!-- Quick Queries Section -->
             <div class="section">
-                <h2>📊 Quick Queries
-                    {% if device_context %}
-                        - {{ device_context.name }}
-                    {% endif %}
-                </h2>
+                <h2>📊 Quick Queries</h2>
          
-                <div class="quick-queries" id="quickQueriesContainer">
-                    <!-- Quick queries will be loaded dynamically -->
+                <div class="quick-queries">
+                    <button class="quick-btn" onclick="executeQuickQuery('last24h')">Last 24 Hours</button>
+                    <button class="quick-btn" onclick="executeQuickQuery('last_100_events')">Last 100 Events</button>
+                    <button class="quick-btn" onclick="executeQuickQuery('all_events')">All Events</button>
+                    <button class="quick-btn" onclick="executeQuickQuery('errors')">Errors</button>
+                    <button class="quick-btn" onclick="executeQuickQuery('other_events')">Other_Events</button>
+                    <button class="quick-btn" onclick="executeQuickQuery('algorithm_stats')">Algorithm Stats</button>
                 </div>
             </div>
 
@@ -585,7 +608,7 @@
                     <textarea 
                         id="sqlQuery" 
                         class="sql-textarea" 
-                        placeholder="SELECT * FROM water_events WHERE device_type = '{{ device_context.type if device_context else 'water_system' }}' ORDER BY received_at DESC LIMIT 50;"
+                        placeholder="SELECT * FROM water_events ORDER BY received_at DESC LIMIT 50;"
                     ></textarea>
                 </div>
                 
@@ -604,43 +627,15 @@
             
             <!-- Help Section -->
             <div class="help-section">
-                <h3>📚 Help & Examples
-                    {% if device_context %}
-                        - {{ device_context.name }}
-                    {% endif %}
-                </h3>
+                <h3>📚 Help & Examples</h3>
                 <p><strong>Available table:</strong> <code>water_events</code></p>
-                {% if device_context %}
-                <p><strong>Relevant columns for {{ device_context.name }}:</strong> 
-                    {% for column in device_context.columns %}
-                        <code>{{ column }}</code>{% if not loop.last %}, {% endif %}
-                    {% endfor %}
-                </p>
-                <p><strong>Event types:</strong> 
-                    {% for event_type in device_context.event_types %}
-                        <code>{{ event_type }}</code>{% if not loop.last %}, {% endif %}
-                    {% endfor %}
-                </p>
-                {% else %}
-                <p><strong>Columns:</strong> id, device_id, device_type, timestamp, unix_time, event_type, volume_ml, water_status, system_status, received_at, client_ip, temperature, humidity, zone_status, motion_detected</p>
-                {% endif %}
+                <p><strong>Columns:</strong> id, device_id, timestamp, unix_time, event_type, volume_ml, water_status, system_status, received_at, client_ip</p>
                 <p><strong>Example queries:</strong></p>
                 <ul>
-                    {% if device_context and device_context.type == 'water_system' %}
-                    <li><code>SELECT * FROM water_events WHERE device_type = 'water_system' AND event_type = 'AUTO_CYCLE_COMPLETE' LIMIT 10;</code> - Auto pump cycles</li>
-                    <li><code>SELECT DATE(received_at), SUM(volume_ml) FROM water_events WHERE device_type = 'water_system' GROUP BY DATE(received_at);</code> - Daily volume</li>
-                    <li><code>SELECT * FROM water_events WHERE device_type = 'water_system' AND pump_attempts > 1;</code> - Multiple pump attempts</li>
-                    {% elif device_context and device_context.type == 'temperature_sensor' %}
-                    <li><code>SELECT * FROM water_events WHERE device_type = 'temperature_sensor' AND temperature IS NOT NULL LIMIT 10;</code> - Temperature readings</li>
-                    <li><code>SELECT AVG(temperature), AVG(humidity) FROM water_events WHERE device_type = 'temperature_sensor' AND DATE(received_at) = DATE('now');</code> - Today's averages</li>
-                    {% elif device_context and device_context.type == 'security_system' %}
-                    <li><code>SELECT * FROM water_events WHERE device_type = 'security_system' AND motion_detected = 1 LIMIT 10;</code> - Motion events</li>
-                    <li><code>SELECT zone_status, COUNT(*) FROM water_events WHERE device_type = 'security_system' GROUP BY zone_status;</code> - Zone status summary</li>
-                    {% else %}
                     <li><code>SELECT COUNT(*) FROM water_events;</code> - Total events count</li>
-                    <li><code>SELECT device_type, COUNT(*) FROM water_events GROUP BY device_type;</code> - Events by device type</li>
-                    <li><code>SELECT * FROM water_events WHERE system_status != 'OK';</code> - System issues</li>
-                    {% endif %}
+                    <li><code>SELECT * FROM water_events WHERE event_type = 'AUTO_PUMP' LIMIT 10;</code> - Auto pump events</li>
+                    <li><code>SELECT DATE(received_at), SUM(volume_ml) FROM water_events GROUP BY DATE(received_at);</code> - Daily volume</li>
+                    <li><code>SELECT * FROM water_events WHERE water_status != 'OK';</code> - Water level issues</li>
                 </ul>
                 <p><strong>Restrictions:</strong></p>
                 <ul>
@@ -649,159 +644,48 @@
                     <li>10 second query timeout</li>
                     <li>Only water_events table accessible</li>
                 </ul>
+                <p><strong>Session Management:</strong></p>
+                <ul>
+                    <li>Session timeout: 30 minutes of inactivity</li>
+                    <li>Auto-logout warning at 5 minutes remaining</li>
+                    <li>Account lockout: 8 failed attempts = 1 hour ban</li>
+                </ul>
             </div>
         </div>
     </div>
 
     <script>
-
-    
-        // {% if device_context %}
-        document.documentElement.style.setProperty('--device-color', '{{ device_context.color }}');
-        document.documentElement.style.setProperty('--device-color-light', '{{ device_context.color }}22');
-        document.documentElement.style.setProperty('--device-color-medium', '{{ device_context.color }}66');
-        document.documentElement.style.setProperty('--device-color-dark', '{{ device_context.color }}CC');
-        document.body.classList.add('device-context');
-        // {% endif %}
-
+   
         let currentQueryType = '';
-        let currentDeviceType = '{{ device_context.type if device_context else "" }}';
         let sessionTimer = null;
         let warningShown = false;
 
-    
-    
-        
-
-
-
-
-        // Device-specific column translation
         function translateColumnName(columnName) {
-            const baseTranslations = {
+            const translations = {
                 'id': 'ID',
-                'device_id': 'Device ID',
-                'device_type': 'Device Type',
+                'device_id': 'Device-ID',
                 'timestamp': 'Event Time',
                 'unix_time': 'Unix Time',
                 'event_type': 'Event Type',
+                'volume_ml': 'Water Filled Volume ',
                 'water_status': 'Water Status',
                 'system_status': 'System Status',
                 'received_at': 'Log Receipt Time',
-                'client_ip': 'Client IP'
+                'client_ip': 'Client IP',
+                'time_gap_1': 'Turn-ON Delay',
+                'time_gap_2': 'Turn-OFF Delay',
+                'water_trigger_time': 'Water fill Delay',
+                'pump_duration': 'Pump Run Time',
+                'pump_attempts': 'Próby Pompy',
+                'gap1_fail_sum': 'Turn-ON Error Count',
+                'gap2_fail_sum': 'Turn-OFF Error Count', 
+                'water_fail_sum': 'Water Fill Error',
+                'last_reset_timestamp': 'Last Reset Timestamp',
+                'algorithm_data': 'Event Log'
             };
-
-            const deviceSpecificTranslations = {
-                'water_system': {
-                    'volume_ml': 'Water Volume (ml)',
-                    'time_gap_1': 'Turn-ON Delay',
-                    'time_gap_2': 'Turn-OFF Delay',
-                    'water_trigger_time': 'Water Fill Delay',
-                    'pump_duration': 'Pump Run Time',
-                    'pump_attempts': 'Pump Attempts',
-                    'gap1_fail_sum': 'Turn-ON Error Count',
-                    'gap2_fail_sum': 'Turn-OFF Error Count', 
-                    'water_fail_sum': 'Water Fill Errors',
-                    'last_reset_timestamp': 'Last Reset',
-                    'algorithm_data': 'Event Log'
-                },
-                'temperature_sensor': {
-                    'temperature': 'Temperature (°C)',
-                    'humidity': 'Humidity (%)',
-                },
-                'security_system': {
-                    'zone_status': 'Zone Status',
-                    'motion_detected': 'Motion Detected'
-                }
-            };
-            
-            // Check device-specific translations first
-            if (currentDeviceType && deviceSpecificTranslations[currentDeviceType] && deviceSpecificTranslations[currentDeviceType][columnName]) {
-                return deviceSpecificTranslations[currentDeviceType][columnName];
-            }
-            
-            // Fall back to base translations
-            return baseTranslations[columnName] || columnName;
+            return translations[columnName] || columnName;
         }
 
-        // Load available queries for device type
-        function loadDeviceQueries() {
-            if (!currentDeviceType) {
-                loadLegacyQueries();
-                return;
-            }
-
-            fetch(`/api/available-queries/${currentDeviceType}`)
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        const container = document.getElementById('quickQueriesContainer');
-                        container.innerHTML = '';
-                        
-                        Object.entries(data.queries).forEach(([queryId, queryInfo]) => {
-                            const btn = document.createElement('button');
-                            btn.className = 'quick-btn';
-                            btn.textContent = queryInfo.name;
-                            btn.title = queryInfo.description;
-                            btn.onclick = () => executeDeviceQuery(queryId);
-                            container.appendChild(btn);
-                        });
-                    } else {
-                        console.error('Failed to load device queries:', data.error);
-                        loadLegacyQueries();
-                    }
-                })
-                .catch(error => {
-                    console.error('Error loading device queries:', error);
-                    loadLegacyQueries();
-                });
-        }
-
-        function loadLegacyQueries() {
-            const container = document.getElementById('quickQueriesContainer');
-            container.innerHTML = `
-                <button class="quick-btn" onclick="executeQuickQuery('last24h')">Last 24 Hours</button>
-                <button class="quick-btn" onclick="executeQuickQuery('last_100_events')">Last 100 Events</button>
-                <button class="quick-btn" onclick="executeQuickQuery('all_events')">All Events</button>
-                <button class="quick-btn" onclick="executeQuickQuery('errors')">Errors</button>
-                <button class="quick-btn" onclick="executeQuickQuery('today_stats')">Today's Stats</button>
-            `;
-        }
-
-        function executeDeviceQuery(queryType) {
-            currentQueryType = queryType;
-            const container = document.getElementById('resultsContainer');
-            container.innerHTML = '<div class="loading">Executing query...</div>';
-            
-            const url = currentDeviceType 
-                ? `/api/admin-device-query/${currentDeviceType}/${queryType}`
-                : `/api/admin-quick-query/${queryType}`;
-            
-            fetch(url)
-                .then(response => {
-                    if (response.status === 401) {
-                        alert('Session expired. Please login again.');
-                        window.location.href = '/login';
-                        return;
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    if (data && data.success) {
-                        displayResults(data.data);
-                        updateResultsInfo(data.count);
-                    } else if (data) {
-                        showAlert(`Error: ${data.error}`, 'error');
-                    }
-                })
-                .catch(error => {
-                    showAlert(`Network error: ${error.message}`, 'error');
-                });
-        }
-
-        // Rest of the JavaScript functions remain the same...
-        // (translateCellValue, displayResults, exportData, etc.)
-        
         // Mapowanie wartości na polskie
         function translateCellValue(columnName, value) {
 
@@ -815,15 +699,7 @@
                     'MANUAL_NORMAL': 'MANUAL FILL',
                     'MANUAL_EXTENDED': 'PUMP CALIBRATION',
                     'AUTO_CYCLE_COMPLETE': 'AUTO FILL',
-                    'STATISTICS_RESET': 'STATISTICS RESET',
-                    'TEMP_READING': 'TEMP READING',
-                    'HUMIDITY_READING': 'HUMIDITY READING',
-                    'SENSOR_ERROR': 'SENSOR ERROR',
-                    'DOOR_OPEN': 'DOOR OPEN',
-                    'DOOR_CLOSE': 'DOOR CLOSE',
-                    'MOTION_DETECTED': 'MOTION DETECTED',
-                    'SYSTEM_ARM': 'SYSTEM ARM',
-                    'SYSTEM_DISARM': 'SYSTEM DISARM'
+                    'STATISTICS_RESET': 'STATISTICS RESET'
                 },
                 'water_status': {
                     'OK': 'OK',
@@ -838,19 +714,6 @@
                 'system_status': {
                     'OK': 'SYSTEM OK',
                     'ERROR': 'ERROR'
-                },
-                'zone_status': {
-                    'ARMED': 'ARMED',
-                    'DISARMED': 'DISARMED',
-                    'OPEN': 'OPEN',
-                    'CLOSED': 'CLOSED',
-                    'TRIGGERED': 'TRIGGERED'
-                },
-                'motion_detected': {
-                    '1': 'YES',
-                    '0': 'NO',
-                    'true': 'YES',
-                    'false': 'NO'
                 }
             };
             
@@ -967,9 +830,10 @@
             const thead = document.createElement('thead');
             const headerRow = document.createElement('tr');
 
+            // const columnKeys = Object.keys(data[0]);
             const preferredColumnOrder = [
-                'id','device_id', 'device_type', 'timestamp', 'event_type', 'pump_duration', 'pump_attempts', 'volume_ml', 'time_gap_1', 'time_gap_2'
-                , 'water_trigger_time','gap1_fail_sum', 'gap2_fail_sum', 'water_fail_sum', 'temperature', 'humidity', 'zone_status', 'motion_detected', 'system_status',
+                'id','device_id', 'timestamp', 'event_type', 'pump_duration', 'pump_attempts', 'volume_ml', 'time_gap_1', 'time_gap_2'
+                , 'water_trigger_time','gap1_fail_sum', 'gap2_fail_sum', 'water_fail_sum', 'system_status',
                  'client_ip', 'water_status', 'received_at', 'last_reset_timestamp',
                 , 'unix_time', 'algorithm_data', 
             ];
@@ -977,7 +841,6 @@
             const columnCategories = {
                 'id': 'th-id',
                 'device_id': 'th-device_id',
-                'device_type': 'th-device_type',
                 'timestamp': 'th-timestamp',
                 'event_type': 'th-event_type',
                 'pump_duration': 'th-pump_duration',
@@ -989,10 +852,6 @@
                 'gap1_fail_sum': 'th-gap1_fail_sum',
                 'gap2_fail_sum': 'th-gap2_fail_sum',
                 'water_fail_sum': 'th-water_fail_sum',
-                'temperature': 'th-temperature',
-                'humidity': 'th-humidity',
-                'zone_status': 'th-zone_status',
-                'motion_detected': 'th-motion_detected',
                 'client_ip': 'th-client_ip',
                 'water_status': 'th-water_status',
                 'system_status': 'th-system_status',
@@ -1063,15 +922,7 @@
                 'MANUAL_NORMAL': 'row-manual-normal', 
                 'MANUAL_EXTENDED': 'row-manual-extended',
                 'AUTO_CYCLE_COMPLETE': 'row-auto-complete',
-                'STATISTICS_RESET': 'row-stats-reset',
-                'TEMP_READING': 'row-default',
-                'HUMIDITY_READING': 'row-default',
-                'SENSOR_ERROR': 'row-manual-extended',
-                'DOOR_OPEN': 'row-default',
-                'DOOR_CLOSE': 'row-default',
-                'MOTION_DETECTED': 'row-manual-extended',
-                'SYSTEM_ARM': 'row-default',
-                'SYSTEM_DISARM': 'row-default'
+                'STATISTICS_RESET': 'row-stats-reset'
             };
             return eventTypeClasses[eventType] || 'row-default';
         }
@@ -1089,10 +940,8 @@
                 return;
             }
         
-            const url = currentDeviceType 
-                ? `/api/quick-export/${currentDeviceType}/${currentQueryType}/${format}`
-                : `/api/quick-export/${currentQueryType}/${format}`;
-                
+            // Użyj nowego API endpoint - bez znajomości SQL
+            const url = `/api/quick-export/${currentQueryType}/${format}`;
             window.open(url, '_blank');
         }       
 
@@ -1102,6 +951,7 @@
                 return;
             }
 
+            // currentQuery = query;
             const container = document.getElementById('resultsContainer');
             container.innerHTML = '<div class="loading">Executing query...</div>';
             const executeBtn = document.getElementById('executeBtn');
@@ -1128,6 +978,7 @@
             })
             .then(data => {
                 if (data && data.success) {
+                    // currentResults = data.data;
                     displayResults(data.data);
                     updateResultsInfo(data.count, data.limited);
                     
@@ -1156,7 +1007,33 @@
         }
 
         function executeQuickQuery(type) {
-            executeDeviceQuery(type);
+
+            currentQueryType = type;
+            const container = document.getElementById('resultsContainer');
+            container.innerHTML = '<div class="loading">Executing query...</div>';
+            
+            fetch(`/api/admin-quick-query/${type}`)
+            .then(response => {
+                if (response.status === 401) {
+                    alert('Session expired. Please login again.');
+                    window.location.href = '/login';
+                    return;
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data && data.success) {
+                    // currentResults = data.data;
+                    displayResults(data.data);
+                    updateResultsInfo(data.count);
+                    
+                } else if (data) {
+                    showAlert(`Error: ${data.error}`, 'error');
+                }
+            })
+            .catch(error => {
+                showAlert(`Network error: ${error.message}`, 'error');
+            });
         }
 
         function logout() {
@@ -1174,14 +1051,8 @@
 
         // Load default query on page load
         document.addEventListener('DOMContentLoaded', function() {
-            
-            const defaultQuery = currentDeviceType 
-                ? `SELECT * FROM water_events WHERE device_type = '${currentDeviceType}' ORDER BY received_at DESC LIMIT 20;`
-                : 'SELECT * FROM water_events ORDER BY received_at DESC LIMIT 20;';
-            
-            document.getElementById('sqlQuery').value = defaultQuery;
+            document.getElementById('sqlQuery').value = 'SELECT * FROM water_events ORDER BY received_at DESC LIMIT 20;';
             loadSessionInfo();
-            loadDeviceQueries();
         });
 
         // Execute query on Ctrl+Enter
@@ -1196,6 +1067,7 @@
             if (!warningShown) {
                 fetch('/api/session-info')
                     .catch(() => {
+                        // Session might be expired
                         console.log('Session check failed');
                     });
             }
