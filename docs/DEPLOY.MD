@@ -195,6 +195,43 @@ sudo certbot certificates
 ### Test auto-renewal
 ```bash
 sudo certbot renew --dry-run
+
+
+
+## Krok 5.5: Multi-Device Configuration
+
+### Configure Device Types
+
+The system supports multiple IoT device types through configuration. Edit `device_config.py` to define your devices:
+```python
+# Device type mappings: device_id -> device_type
+DEVICE_TYPE_MAPPING = {
+    'DOLEWKA': 'water_system',           # Existing water system
+    'TEMP_SALON': 'temperature_sensor',  # Temperature monitoring
+    'TEMP_OUTDOOR': 'temperature_sensor',
+    'SECURITY_01': 'security_system',    # Security monitoring
+    'SECURITY_DOOR': 'security_system',
+}
+
+# Device type definitions with UI customization
+DEVICE_TYPES = {
+    'water_system': {
+        'name': 'Water Management',
+        'description': 'Aquarium water level and pump control systems',
+        'icon': '🐠',
+        'color': '#3498db',
+        'columns': ['id', 'device_id', 'timestamp', 'event_type', 'volume_ml', 'pump_duration'],
+        'event_types': ['AUTO_PUMP', 'MANUAL_NORMAL', 'AUTO_CYCLE_COMPLETE']
+    },
+    'temperature_sensor': {
+        'name': 'Temperature Monitoring',
+        'description': 'Environmental temperature and humidity sensors', 
+        'icon': '🌡️',
+        'color': '#e74c3c',
+        'columns': ['id', 'device_id', 'timestamp', 'temperature', 'humidity'],
+        'event_types': ['TEMP_READING', 'HUMIDITY_READING']
+    }
+}
 ```
 
 ## Krok 6: Konfiguracja systemd service

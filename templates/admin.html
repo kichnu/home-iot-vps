@@ -655,7 +655,6 @@
 
     <script>
 
-    
         // {% if device_context %}
         document.documentElement.style.setProperty('--device-color', '{{ device_context.color }}');
         document.documentElement.style.setProperty('--device-color-light', '{{ device_context.color }}22');
@@ -668,13 +667,6 @@
         let currentDeviceType = '{{ device_context.type if device_context else "" }}';
         let sessionTimer = null;
         let warningShown = false;
-
-    
-    
-        
-
-
-
 
         // Device-specific column translation
         function translateColumnName(columnName) {
@@ -798,10 +790,7 @@
                     showAlert(`Network error: ${error.message}`, 'error');
                 });
         }
-
-        // Rest of the JavaScript functions remain the same...
-        // (translateCellValue, displayResults, exportData, etc.)
-        
+  
         // Mapowanie wartości na polskie
         function translateCellValue(columnName, value) {
 

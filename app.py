@@ -10,7 +10,6 @@ Odbiera i przechowuje zdarzenia z systemu podlewania
 import os
 import sys
 
-
 # Ładowanie .env file dla developmentu (przed importami Flask)
 try:
     from dotenv import load_dotenv
@@ -185,82 +184,6 @@ def fix_device_type_migration():
     finally:
         conn.close()
 
-
-# def init_database():
-#     """Inicjalizacja bazy danych SQLite z rozszerzonymi kolumnami algorytmicznymi"""
-#     os.makedirs(os.path.dirname(DATABASE_PATH), exist_ok=True)
-    
-#     conn = sqlite3.connect(DATABASE_PATH)
-#     cursor = conn.cursor()
-    
-#     # Sprawdź czy tabela istnieje i ma stare kolumny
-#     cursor.execute("PRAGMA table_info(water_events)")
-#     existing_columns = [row[1] for row in cursor.fetchall()]
-    
-#     if not existing_columns:
-#         # Nowa instalacja - utwórz tabelę z wszystkimi kolumnami
-#         cursor.execute('''
-#             CREATE TABLE water_events (
-#                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-#                 device_id TEXT NOT NULL,
-#                 timestamp TEXT NOT NULL,
-#                 unix_time INTEGER NOT NULL,
-#                 event_type TEXT NOT NULL,
-#                 volume_ml INTEGER NOT NULL,
-#                 water_status TEXT NOT NULL,
-#                 system_status TEXT NOT NULL,
-#                 received_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-#                 client_ip TEXT,
-                
-#                 -- Rozszerzone kolumny algorytmiczne (v2.0)
-#                 time_gap_1 INTEGER DEFAULT NULL,
-#                 time_gap_2 INTEGER DEFAULT NULL,
-#                 water_trigger_time INTEGER DEFAULT NULL,
-#                 pump_duration INTEGER DEFAULT NULL,
-#                 pump_attempts INTEGER DEFAULT NULL,
-#                 gap1_fail_sum INTEGER DEFAULT NULL,
-#                 gap2_fail_sum INTEGER DEFAULT NULL,
-#                 water_fail_sum INTEGER DEFAULT NULL,
-#                 algorithm_data TEXT DEFAULT NULL
-#             )
-#         ''')
-#         logging.info("Created new water_events table with algorithm columns")
-        
-#     else:
-#         # Istniejąca tabela - dodaj nowe kolumny jeśli nie istnieją
-#         new_columns = [
-#             'time_gap_1 INTEGER DEFAULT NULL',
-#             'time_gap_2 INTEGER DEFAULT NULL', 
-#             'water_trigger_time INTEGER DEFAULT NULL',
-#             'pump_duration INTEGER DEFAULT NULL',
-#             'pump_attempts INTEGER DEFAULT NULL',
-#             'gap1_fail_sum INTEGER DEFAULT NULL',
-#             'gap2_fail_sum INTEGER DEFAULT NULL', 
-#             'water_fail_sum INTEGER DEFAULT NULL',
-#             'last_reset_timestamp INTEGER DEFAULT NULL',
-#             'algorithm_data TEXT DEFAULT NULL'
-#         ]
-        
-#         for column_def in new_columns:
-#             column_name = column_def.split()[0]
-#             if column_name not in existing_columns:
-#                 try:
-#                     cursor.execute(f'ALTER TABLE water_events ADD COLUMN {column_def}')
-#                     logging.info(f"Added column: {column_name}")
-#                 except sqlite3.Error as e:
-#                     logging.warning(f"Could not add column {column_name}: {e}")
-    
-#     # Indeksy dla lepszej wydajności
-#     cursor.execute('CREATE INDEX IF NOT EXISTS idx_device_id ON water_events(device_id)')
-#     cursor.execute('CREATE INDEX IF NOT EXISTS idx_timestamp ON water_events(unix_time)')
-#     cursor.execute('CREATE INDEX IF NOT EXISTS idx_event_type ON water_events(event_type)')
-#     cursor.execute('CREATE INDEX IF NOT EXISTS idx_algorithm ON water_events(time_gap_1, gap1_fail_sum)')
-    
-#     conn.commit()
-#     conn.close()
-    
-#     logging.info("Database initialized successfully with algorithm support")
-
 def init_database():
     """Inicjalizacja bazy danych SQLite z obsługą multi-device architecture"""
     os.makedirs(os.path.dirname(DATABASE_PATH), exist_ok=True)
@@ -387,7 +310,7 @@ def init_database():
     conn.close()
 
     # Fix any incorrect device_type values!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    fix_device_type_migration()
+    # fix_device_type_migration()
     # Fix any incorrect device_type values!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     
     logging.info("Database initialized successfully with multi-device architecture")
@@ -671,114 +594,6 @@ def validate_event_data(data):
     
     return True, "Valid"
 
-# ===============================
-# ESP32 API ENDPOINTS (HTTP ONLY - PORT 5000)
-# ===============================
-
-# @app.route('/api/water-events', methods=['POST'])
-# @require_auth
-
-# def receive_water_event():
-#     """Endpoint do odbierania zdarzeń z ESP32-C3"""
-#     from device_config import get_device_type, get_device_config
-    
-#     client_ip = get_real_ip()
-    
-#     try:
-#         # Sprawdź Content-Type
-#         if request.content_type != 'application/json':
-#             logging.warning(f"Invalid Content-Type from {client_ip}: {request.content_type}")
-#             return jsonify({'error': 'Content-Type must be application/json'}), 400
-        
-#         # Pobierz dane JSON
-#         data = request.get_json()
-        
-#         if not data:
-#             logging.warning(f"No JSON data received from {client_ip}")
-#             return jsonify({'error': 'No JSON data provided'}), 400
-        
-#         # Walidacja danych
-#         is_valid, error_msg = validate_event_data(data)
-#         if not is_valid:
-#             logging.warning(f"Invalid data from {client_ip}: {error_msg}")
-#             return jsonify({'error': error_msg}), 400
-
-
-        
-#         # Zapisz do bazy danych z obsługą danych algorytmicznych
-#         conn = sqlite3.connect(DATABASE_PATH)
-#         cursor = conn.cursor()
-        
-#         # Przygotuj dane algorytmiczne (opcjonalne)
-#         # Przygotuj dane algorytmiczne (opcjonalne)
-#         algorithm_values = {}
-#         algorithm_fields = ['time_gap_1', 'time_gap_2', 'water_trigger_time', 
-#                           'pump_duration', 'pump_attempts', 'gap1_fail_sum', 'gap2_fail_sum', 'water_fail_sum', 
-#                           'last_reset_timestamp', 'algorithm_data']
-        
-#         for field in algorithm_fields:
-#             algorithm_values[field] = data.get(field, None)
-
-#         device_type = get_device_type(data['device_id'])
-        
-#         cursor.execute('''
-#             INSERT INTO water_events 
-#             (device_id, device_type, timestamp, unix_time, event_type, volume_ml, 
-#              water_status, system_status, client_ip,
-#              time_gap_1, time_gap_2, water_trigger_time, pump_duration, pump_attempts,
-#              gap1_fail_sum, gap2_fail_sum, water_fail_sum, last_reset_timestamp, algorithm_data)
-#             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-#         ''', (
-#             data['device_id'],
-#             device_type,
-#             data['timestamp'],
-#             data['unix_time'],
-#             data['event_type'],
-#             data['volume_ml'],
-#             data['water_status'],
-#             data['system_status'],
-#             client_ip,
-#             algorithm_values['time_gap_1'],
-#             algorithm_values['time_gap_2'],
-#             algorithm_values['water_trigger_time'],
-#             algorithm_values['pump_duration'],
-#             algorithm_values['pump_attempts'],
-#             algorithm_values['gap1_fail_sum'],
-#             algorithm_values['gap2_fail_sum'],
-#             algorithm_values['water_fail_sum'],
-#             algorithm_values['last_reset_timestamp'],
-#             algorithm_values['algorithm_data']
-#         ))
-
-#         event_id = cursor.lastrowid
-#         conn.commit()
-#         conn.close()
-        
-#         # Loguj pomyślne zdarzenie
-#         logging.info(
-#             f"Event saved [ID: {event_id}] - Device: {data['device_id']}, "
-#             f"Type: {data['event_type']}, Volume: {data['volume_ml']}ml, "
-#             f"Status: {data['water_status']}, IP: {client_ip}"
-#         )
-        
-#         return jsonify({
-#             'success': True,
-#             'event_id': event_id,
-#             'message': 'Event recorded successfully'
-#         }), 200
-        
-#     except json.JSONDecodeError:
-#         logging.error(f"JSON decode error from {client_ip}")
-#         return jsonify({'error': 'Invalid JSON format'}), 400
-    
-#     except sqlite3.Error as e:
-#         logging.error(f"Database error: {e}")
-#         return jsonify({'error': 'Database error'}), 500
-    
-#     except Exception as e:
-#         logging.error(f"Unexpected error: {e}")
-#         return jsonify({'error': 'Internal server error'}), 500
-
 # TEPMPORARY ENDPOINT!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 @app.route('/api/debug-device-types')
 @require_admin_auth
@@ -805,8 +620,6 @@ def debug_device_types():
     conn.close()
     return jsonify(results)
 # TEPMPORARY ENDPOINT!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-
 
 @app.route('/api/water-events', methods=['POST'])
 @require_auth
@@ -1073,20 +886,6 @@ def logout():
     flash('You have been logged out successfully.', 'info')
     return redirect(url_for('login_page'))
 
-# ===============================
-# ADMIN PANEL ENDPOINTS (SESSION AUTH)
-# ===============================
-
-# @app.route('/')
-# @app.route('/admin')
-# @require_admin_auth
-# def admin_dashboard():
-#     """Admin panel dashboard"""
-#     client_ip = get_real_ip()
-#     logging.info(f"Admin panel accessed from {client_ip}")
-    
-#     return render_template('admin.html')
-
 @app.route('/')
 @app.route('/admin')  
 @require_admin_auth
@@ -1094,6 +893,7 @@ def admin_dashboard():
     """Redirect to dashboard for device type selection"""
     return redirect(url_for('device_dashboard'))
 
+     
 @app.route('/dashboard')
 @require_admin_auth
 def device_dashboard():
@@ -1179,6 +979,7 @@ def device_dashboard():
         logging.error(f"Dashboard error: {e}")
         return jsonify({'error': 'Dashboard error'}), 500
 
+ 
 @app.route('/admin/<device_type>')
 @require_admin_auth  
 def device_context_admin(device_type):
@@ -1204,7 +1005,7 @@ def device_context_admin(device_type):
                              'color': config.get('color', '#95a5a6'),
                              'columns': config.get('columns', []),
                              'event_types': config.get('event_types', [])
-                         })        
+                         })
 
 @app.route('/api/session-info')
 @require_admin_auth

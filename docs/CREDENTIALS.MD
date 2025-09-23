@@ -499,6 +499,21 @@ curl -X POST https://your-domain.com/api/water-events \
   -d '{}'
 ```
 
+
+## Multi-Device Security Considerations
+
+### Device-Specific Tokens
+
+For enhanced security in multi-device deployments, consider device-specific API tokens:
+```bash
+# Generate different tokens per device type
+python generate_credentials.py --output display --token-format sha256
+
+# Example configuration for multiple devices
+WATER_SYSTEM_API_TOKEN=sha256:abc123...
+TEMPERATURE_API_TOKEN=sha256:def456...
+SECURITY_API_TOKEN=sha256:ghi789...
+
 ## Best practices
 
 ### Development
