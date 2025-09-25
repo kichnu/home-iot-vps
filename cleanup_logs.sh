@@ -11,4 +11,4 @@ if [ -f "$LOG_FILE" ] && [ $(stat -f%z "$LOG_FILE" 2>/dev/null || stat -c%s "$LO
     tail -n 1000 "$LOG_FILE" > "$LOG_FILE.tmp" && mv "$LOG_FILE.tmp" "$LOG_FILE"
 fi
 
-echo "$(date): Log cleanup completed" >> "$LOG_DIR/cleanup.log"
+echo "$(date): Log cleanup completed" >> "$LOG_DIR/cleanup_logs.log"

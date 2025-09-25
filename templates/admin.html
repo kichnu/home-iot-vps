@@ -281,7 +281,7 @@
         .results-table td {
             padding: 8px 4px;
             text-align: center;
-            border-bottom: 1px solid #ecf0f1;
+            /* border-bottom: 1px solid #ecf0f1; */
             border-right: 1px solid #ecf0f1;
             word-wrap: break-word;
             overflow-wrap: break-word;
@@ -355,6 +355,14 @@
             background-color: #9b59b6;
         }
 
+        .th-water_status{
+            background-color: #a6b5c5;
+        }
+
+        .th-system_status{
+            background-color: #a6b5c5;
+        }
+
         .row-auto-pump {
             background-color: #e3f2fd; 
         }
@@ -378,6 +386,12 @@
         .row-default {
             background-color: white;
         }
+
+        .system-status-error{
+            border-bottom: 1px solid #721c24;
+        }
+
+
 
         @media (max-width: 768px) {
             .content {
@@ -1025,6 +1039,11 @@
                 if (eventType) {
                     const rowClass = getEventTypeRowClass(eventType);
                     tr.classList.add(rowClass);
+                }
+
+                       const systemStatus = row['system_status'];
+                if (systemStatus == "ERROR") {
+                    tr.classList.add("system-status-error");
                 }
 
                 columnKeys.forEach(columnName => {

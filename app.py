@@ -1315,6 +1315,16 @@ def run_admin_server():
     logging.info(f"Starting Admin server on port {ADMIN_PORT} (HTTP - Nginx handles SSL)")
     app.run(host='0.0.0.0', port=ADMIN_PORT, debug=False, threaded=True)
 
+# def run_http_server():
+#     """Uruchom HTTP server dla ESP32 API"""
+#     logging.info(f"Starting HTTP server on port {HTTP_PORT} for ESP32 API")
+#     app.run(host='127.0.0.1', port=HTTP_PORT, debug=False, threaded=True)  # ✅ ZMIANA
+
+# def run_admin_server():
+#     """Uruchom HTTP server dla Admin Panel (Nginx obsługuje SSL)"""
+#     logging.info(f"Starting Admin server on port {ADMIN_PORT} (HTTP - Nginx handles SSL)")
+#     app.run(host='127.0.0.1', port=ADMIN_PORT, debug=False, threaded=True)  # ✅ ZMIANA
+
 if __name__ == '__main__':
     # Inicjalizuj bazę danych przy starcie
     init_database()
