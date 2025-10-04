@@ -202,3 +202,29 @@ deployment.log
 local_settings.py
 local_config.py
 development.ini
+
+# Runtime data
+data/database/*.db
+data/logs/*.log
+
+# Build artifacts
+__pycache__/
+*.pyc
+*.pyo
+
+# Environment
+.env
+.env.local
+
+# Virtual environment (jeśli nie chcesz w repo)
+# venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db

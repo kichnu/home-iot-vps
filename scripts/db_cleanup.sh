@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # Konfiguracja
-DB_PATH="/home/kichnu/tap_off_water-vps/water_events.db"
-LOG_FILE="/home/kichnu/tap_off_water-vps/db_cleanup.log"
+DB_PATH="/opt/home-iot/data/database/water_events.db"
+LOG_FILE="/opt/home-iot/data/logs/db_cleanup.log"
 RETENTION_DAYS=60
 
 # Sprawdź czy plik bazy istnieje

@@ -47,11 +47,17 @@ from queries_config import get_query_sql, get_all_queries_sql, QUICK_QUERIES
 # === KONFIGURACJA Z ZMIENNYCH ŚRODOWISKOWYCH ===
 
 # Ścieżki do plików (automatyczna detekcja lub z env)
+# BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+# DATABASE_PATH = os.getenv('WATER_SYSTEM_DATABASE_PATH', 
+#                          os.path.join(BASE_DIR, 'water_events.db'))
+# LOG_PATH = os.getenv('WATER_SYSTEM_LOG_PATH', 
+#                     os.path.join(BASE_DIR, 'app.log'))
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATABASE_PATH = os.getenv('WATER_SYSTEM_DATABASE_PATH', 
-                         os.path.join(BASE_DIR, 'water_events.db'))
+                         os.path.join(BASE_DIR, 'data/database/water_events.db'))
 LOG_PATH = os.getenv('WATER_SYSTEM_LOG_PATH', 
-                    os.path.join(BASE_DIR, 'app.log'))
+                    os.path.join(BASE_DIR, 'data/logs/app.log'))
 
 # Credentials - WYMAGANE zmienne środowiskowe
 ADMIN_PASSWORD = os.getenv('WATER_SYSTEM_ADMIN_PASSWORD')

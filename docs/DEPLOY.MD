@@ -1,119 +1,352 @@
-# Przewodnik Wdrożenia VPS - ESP32 Water System Logger
+# Production Deployment Guide
 
-Kompletny przewodnik wdrożenia aplikacji na serwerze VPS Ubuntu/Debian z nginx, SSL i systemd.
+Deploy Home IoT Platform on Ubuntu/Debian VPS with nginx, SSL, and systemd.
 
-## Wymagania
+## Overview
 
-- **VPS**: Ubuntu 20.04+ lub Debian 11+
-- **Domena**: DNS skonfigurowany na IP serwera
-- **Porty**: 80 (HTTP), 443 (HTTPS) otwarte
-- **Dostęp**: sudo/root na serwerze
+This guide covers production deployment on a VPS with:
+- **Nginx** as reverse proxy with SSL/TLS
+- **Systemd** for service management and auto-restart
+- **Let's Encrypt** for free SSL certificates
+- **UFW** firewall for security
 
-## Krok 1: Przygotowanie systemu
+**Estimated time:** 30-45 minutes  
+**Downtime:** None (fresh installation)
 
-### Aktualizacja systemu
+---
+
+## Prerequisites
+
+### Server Requirements
+- **OS:** Ubuntu 20.04+ or Debian 11+
+- **RAM:** Minimum 512MB (1GB+ recommended)
+- **Disk:** 2GB free space minimum
+- **Network:** Public IP address with ports 80/443 accessible
+
+### Before You Begin
+- ✅ VPS with root/sudo access
+- ✅ Domain name with DNS A record pointing to server IP
+- ✅ SSH access configured
+- ✅ Basic Linux command line knowledge
+
+### Check Your Setup
 ```bash
-sudo apt update && sudo apt upgrade -y
+# Check OS version
+lsb_release -a
+
+# Check available memory
+free -h
+
+# Check disk space
+df -h
+
+# Verify domain DNS (from your local machine)
+nslookup your-domain.com
 ```
 
-### Instalacja podstawowych narzędzi
+---
+
+## Architecture Overview
+
+```
+Internet
+    │
+    ▼
+┌─────────────────────────────────────────┐
+│  Firewall (UFW)                         │
+│  Ports: 22 (SSH), 80 (HTTP), 443 (HTTPS)│
+└────────────┬────────────────────────────┘
+             │
+             ▼
+┌─────────────────────────────────────────┐
+│  Nginx (Port 443)                       │
+│  - SSL Termination (Let's Encrypt)      │
+│  - Reverse Proxy                        │
+│  - Security Headers                     │
+└────────┬───────────────┬────────────────┘
+         │               │
+         ▼               ▼
+┌──────────────┐  ┌──────────────┐
+│ Flask API    │  │ Admin Panel  │
+│ Port 5000    │  │ Port 5001    │
+│ (localhost)  │  │ (localhost)  │
+└──────┬───────┘  └──────┬───────┘
+       │                 │
+       ▼                 ▼
+┌───────────────────────────────┐
+│  SQLite Database              │
+│  /opt/home-iot/water_events.db│
+└───────────────────────────────┘
+```
+
+---
+
+## Step 1: System Preparation
+
+### Update System
+
 ```bash
+# Update package lists
+sudo apt update
+
+# Upgrade installed packages
+sudo apt upgrade -y
+
+# Install essential tools
 sudo apt install -y \
-    python3 \
-    python3-pip \
-    python3-venv \
-    python3-dev \
-    nginx \
-    certbot \
-    python3-certbot-nginx \
-    git \
+    software-properties-common \
+    build-essential \
     curl \
-    ufw
+    wget \
+    git \
+    vim
 ```
 
-### Sprawdzenie wersji Python
+### Install Python 3.8+
+
 ```bash
-python3 --version  # Wymaga 3.8+
+# Check Python version
+python3 --version
+
+# If Python < 3.8, install Python 3.10
+sudo apt install -y python3.10 python3.10-venv python3-pip
+
+# Verify installation
+python3 --version  # Should be 3.8+
 ```
 
-## Krok 2: Przygotowanie aplikacji
+### Install nginx
 
-### Sklonowanie repozytorium
 ```bash
-cd /home/$(whoami)
-git clone https://github.com/yourusername/water-system-logger.git
-cd water-system-logger
+# Install nginx
+sudo apt install -y nginx
+
+# Start and enable nginx
+sudo systemctl start nginx
+sudo systemctl enable nginx
+
+# Verify nginx is running
+sudo systemctl status nginx
 ```
 
-### Utworzenie środowiska wirtualnego
+### Install Certbot (Let's Encrypt)
+
 ```bash
+# Install Certbot for nginx
+sudo apt install -y certbot python3-certbot-nginx
+
+# Verify installation
+certbot --version
+```
+
+---
+
+## Step 2: Application Setup
+
+### Create Application Directory
+
+```bash
+# Create directory in /opt (standard for third-party applications)
+sudo mkdir -p /opt/home-iot
+
+# Set ownership to your user
+sudo chown $USER:$USER /opt/home-iot
+
+# Navigate to directory
+cd /opt/home-iot
+```
+
+### Clone Repository
+
+```bash
+# Clone from GitHub
+git clone https://github.com/yourusername/home-iot.git .
+
+# Verify files
+ls -la
+# Should see: app.py, requirements.txt, templates/, etc.
+
+# Check Git status
+git status
+git remote -v
+```
+
+### Setup Virtual Environment
+
+```bash
+# Create virtual environment
 python3 -m venv venv
+
+# Activate virtual environment
 source venv/bin/activate
-```
 
-### Instalacja zależności
-```bash
+# Upgrade pip
 pip install --upgrade pip
+
+# Install dependencies
 pip install -r requirements.txt
-```
 
-### Sprawdzenie instalacji
-```bash
+# Verify Flask installation
 python -c "import flask; print(f'Flask {flask.__version__}')"
+
+# Deactivate for now
+deactivate
 ```
 
-## Krok 3: Konfiguracja credentials
+---
 
-**⚠️ WAŻNE: Nie używaj domyślnych credentials w produkcji!**
+## Step 3: Configure Credentials
 
-### Development setup
+**⚠️ CRITICAL:** Use strong, unique credentials in production!
+
+### Generate Production Credentials
 
 ```bash
-# Wygeneruj bezpieczne credentials dla developmentu
-python generate_credentials.py --output env
+cd /opt/home-iot
 
-# Sprawdź wygenerowane credentials
-ls -la .env*
-# -rw------- 1 user user  874 .env          # Real credentials (git ignored)
-# -rw-r--r-- 1 user user 1270 .env.example  # Template (safe to commit)
+# Activate virtual environment
+source venv/bin/activate
+
+# Generate strong production credentials
+python generate_credentials.py \
+    --output env \
+    --password-length 40 \
+    --no-symbols
+
+# This creates /opt/home-iot/.env with:
+# - 40-character admin password (no special symbols for CLI ease)
+# - 64-character API token
+# - 64-character Flask secret key
 ```
 
-### Production setup
+### Verify .env File
 
 ```bash
-# Wygeneruj silne credentials dla produkcji
-python generate_credentials.py --output systemd --password-length 40 --no-symbols
+# Check .env exists and has secure permissions
+ls -la .env
+# Should show: -rw------- (600 permissions)
 
-# Sprawdź wygenerowany plik systemd
-ls -la systemd-override.conf
+# View (but don't log!) credentials
+cat .env | grep -E "ADMIN_PASSWORD|API_TOKEN"
+
+# IMPORTANT: Save these credentials securely!
+# - Copy admin password to password manager
+# - Copy API token for ESP32 configuration
 ```
 
-**📖 Szczegółowy przewodnik**: Zobacz [CREDENTIALS.md](CREDENTIALS.md) dla:
-- Generowania silnych credentials
-- Rotacji credentials w różnych środowiskach
-- Security audit i best practices
-- Backup i recovery procedures
-- Troubleshooting credential issues
+### Customize Configuration (Optional)
 
-### Test aplikacji z credentials
 ```bash
-# Test uruchomienia (zatrzyma się po 10 sekund)
-timeout 10s python app.py
-
-# Sprawdź czy pliki zostały utworzone
-ls -la water_events.db app.log 2>/dev/null || echo "Pliki utworzą się przy pierwszym uruchomieniu"
+# Edit .env for production paths
+nano .env
 ```
 
-## Krok 4: Konfiguracja nginx
-
-### Utworzenie konfiguracji nginx
+**Recommended production settings:**
 ```bash
-sudo tee /etc/nginx/sites-available/water-system > /dev/null <<'EOF'
+WATER_SYSTEM_DATABASE_PATH=/opt/home-iot/water_events.db
+WATER_SYSTEM_LOG_PATH=/opt/home-iot/app.log
+WATER_SYSTEM_HTTP_PORT=5000
+WATER_SYSTEM_ADMIN_PORT=5001
+WATER_SYSTEM_NGINX_MODE=true
+WATER_SYSTEM_LOG_LEVEL=INFO
+WATER_SYSTEM_SESSION_TIMEOUT=30
+WATER_SYSTEM_MAX_FAILED_ATTEMPTS=8
+```
+
+**→ Detailed credential management:** [guides/CREDENTIALS.md](guides/CREDENTIALS.md)
+
+---
+
+## Step 4: Systemd Service Configuration
+
+### Create Systemd Service File
+
+```bash
+sudo tee /etc/systemd/system/home-iot.service > /dev/null <<'EOF'
+[Unit]
+Description=Home IoT Multi-Device Platform
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=YOUR_USERNAME
+Group=YOUR_USERNAME
+WorkingDirectory=/opt/home-iot
+ExecStart=/opt/home-iot/venv/bin/python /opt/home-iot/app.py
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+ReadWritePaths=/opt/home-iot
+
+[Install]
+WantedBy=multi-user.target
+EOF
+```
+
+**⚠️ IMPORTANT:** Replace `YOUR_USERNAME` with your actual username:
+
+```bash
+# Replace YOUR_USERNAME with current user
+sudo sed -i "s/YOUR_USERNAME/$USER/g" /etc/systemd/system/home-iot.service
+
+# Verify replacement
+sudo cat /etc/systemd/system/home-iot.service | grep "User="
+```
+
+### Enable and Start Service
+
+```bash
+# Reload systemd to recognize new service
+sudo systemctl daemon-reload
+
+# Enable service (auto-start on boot)
+sudo systemctl enable home-iot
+
+# Start service
+sudo systemctl start home-iot
+
+# Check status
+sudo systemctl status home-iot
+```
+
+**Expected status:** `active (running)` in green
+
+### Verify Application is Running
+
+```bash
+# Check logs
+sudo journalctl -u home-iot -n 30 --no-pager
+
+# Look for:
+# - "Environment variables loaded successfully ✅"
+# - "Database initialized successfully"
+# - "Running on http://127.0.0.1:5000"
+# - "Running on http://127.0.0.1:5001"
+
+# Check ports
+netstat -tln | grep -E ':(5000|5001)'
+# Should show LISTEN on both ports
+```
+
+---
+
+## Step 5: Nginx Configuration
+
+### Create Nginx Configuration
+
+```bash
+sudo tee /etc/nginx/sites-available/home-iot > /dev/null <<'EOF'
 server {
     listen 80;
-    server_name your-domain.com;  # ZMIEŃ NA SWOJĄ DOMENĘ
+    server_name YOUR_DOMAIN.com;
     
-    # Real IP headers
+    # Real IP for Flask (behind proxy)
     real_ip_header X-Real-IP;
     set_real_ip_from 127.0.0.1;
 
@@ -124,6 +357,8 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
+        
+        # Timeouts for IoT devices
         proxy_connect_timeout 10s;
         proxy_send_timeout 10s;
         proxy_read_timeout 10s;
@@ -137,7 +372,7 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
-        access_log off;
+        access_log off;  # Don't log health checks
     }
 
     # Admin Panel (port 5001)
@@ -147,6 +382,8 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
+        
+        # Longer timeouts for admin panel
         proxy_connect_timeout 30s;
         proxy_send_timeout 30s;
         proxy_read_timeout 30s;
@@ -154,528 +391,488 @@ server {
     }
     
     # Logs
-    access_log /var/log/nginx/water-system.access.log;
-    error_log /var/log/nginx/water-system.error.log;
+    access_log /var/log/nginx/home-iot.access.log;
+    error_log /var/log/nginx/home-iot.error.log;
 }
 EOF
 ```
 
-### Aktywacja konfiguracji nginx
+**⚠️ IMPORTANT:** Replace `YOUR_DOMAIN.com` with your actual domain:
+
 ```bash
-# Wyłącz domyślną konfigurację
-sudo rm -f /etc/nginx/sites-enabled/default
+# Edit the file
+sudo nano /etc/nginx/sites-available/home-iot
 
-# Włącz nową konfigurację
-sudo ln -s /etc/nginx/sites-available/water-system /etc/nginx/sites-enabled/
+# Or use sed
+sudo sed -i 's/YOUR_DOMAIN.com/app.example.com/g' /etc/nginx/sites-available/home-iot
+```
 
-# Sprawdź składnię
+### Enable Nginx Site
+
+```bash
+# Remove default site
+sudo rm /etc/nginx/sites-enabled/default
+
+# Enable home-iot site
+sudo ln -s /etc/nginx/sites-available/home-iot \
+           /etc/nginx/sites-enabled/home-iot
+
+# Test nginx configuration
 sudo nginx -t
+# Should show: "syntax is ok" and "test is successful"
 
-# Restart nginx
+# Reload nginx
 sudo systemctl reload nginx
 ```
 
-## Krok 5: Konfiguracja SSL (Let's Encrypt)
+### Verify HTTP Access
 
-### Uzyskanie certyfikatu SSL
 ```bash
-# ZMIEŃ your-domain.com NA SWOJĄ DOMENĘ I EMAIL
-sudo certbot --nginx -d your-domain.com \
+# Test from server (should return 200 or 302)
+curl -I http://localhost/health
+
+# Test from your computer
+curl http://YOUR_DOMAIN.com/health
+```
+
+---
+
+## Step 6: SSL/TLS Configuration (Let's Encrypt)
+
+### Obtain SSL Certificate
+
+```bash
+# Run Certbot for nginx
+sudo certbot --nginx \
+    -d YOUR_DOMAIN.com \
     --non-interactive \
     --agree-tos \
     --email your-email@example.com \
     --redirect
+
+# This will:
+# 1. Verify domain ownership (DNS must be pointing to your server!)
+# 2. Obtain SSL certificate
+# 3. Automatically configure nginx for HTTPS
+# 4. Setup HTTP→HTTPS redirect
 ```
 
-### Sprawdzenie certyfikatu
+**Expected output:**
+```
+Successfully received certificate.
+Certificate is saved at: /etc/letsencrypt/live/YOUR_DOMAIN.com/fullchain.pem
+Key is saved at: /etc/letsencrypt/live/YOUR_DOMAIN.com/privkey.pem
+```
+
+### Verify SSL Certificate
+
 ```bash
+# Check certificate
 sudo certbot certificates
-```
 
-### Test auto-renewal
-```bash
+# Test HTTPS
+curl https://YOUR_DOMAIN.com/health
+
+# Test auto-renewal
 sudo certbot renew --dry-run
-
-
-
-## Krok 5.5: Multi-Device Configuration
-
-### Configure Device Types
-
-The system supports multiple IoT device types through configuration. Edit `device_config.py` to define your devices:
-```python
-# Device type mappings: device_id -> device_type
-DEVICE_TYPE_MAPPING = {
-    'DOLEWKA': 'water_system',           # Existing water system
-    'TEMP_SALON': 'temperature_sensor',  # Temperature monitoring
-    'TEMP_OUTDOOR': 'temperature_sensor',
-    'SECURITY_01': 'security_system',    # Security monitoring
-    'SECURITY_DOOR': 'security_system',
-}
-
-# Device type definitions with UI customization
-DEVICE_TYPES = {
-    'water_system': {
-        'name': 'Water Management',
-        'description': 'Aquarium water level and pump control systems',
-        'icon': '🐠',
-        'color': '#3498db',
-        'columns': ['id', 'device_id', 'timestamp', 'event_type', 'volume_ml', 'pump_duration'],
-        'event_types': ['AUTO_PUMP', 'MANUAL_NORMAL', 'AUTO_CYCLE_COMPLETE']
-    },
-    'temperature_sensor': {
-        'name': 'Temperature Monitoring',
-        'description': 'Environmental temperature and humidity sensors', 
-        'icon': '🌡️',
-        'color': '#e74c3c',
-        'columns': ['id', 'device_id', 'timestamp', 'temperature', 'humidity'],
-        'event_types': ['TEMP_READING', 'HUMIDITY_READING']
-    }
-}
 ```
 
-## Krok 6: Konfiguracja systemd service
+### SSL Auto-Renewal
 
-### Utworzenie wrapper script
+Certbot automatically sets up a systemd timer for renewal:
+
 ```bash
-cat > start_water_system.sh << 'EOF'
-#!/bin/bash
-cd /home/$(whoami)/water-system-logger
-source venv/bin/activate
-exec python app.py
-EOF
+# Check renewal timer status
+sudo systemctl status certbot.timer
 
-chmod +x start_water_system.sh
+# Manual renewal (if needed)
+sudo certbot renew
+
+# View renewal logs
+sudo journalctl -u certbot.timer
 ```
 
-### Utworzenie systemd service z credentials
-```bash
-# Utwórz główny service file
-sudo tee /etc/systemd/system/water-system.service > /dev/null <<EOF
-[Unit]
-Description=ESP32-C3 Water System VPS Logger
-After=network.target
-Wants=network.target
+---
 
-[Service]
-Type=simple
-User=$(whoami)
-Group=$(whoami)
-WorkingDirectory=/home/$(whoami)/water-system-logger
-ExecStart=/home/$(whoami)/water-system-logger/start_water_system.sh
-Restart=always
-RestartSec=5
-StandardOutput=journal
-StandardError=journal
+## Step 7: Firewall Configuration
 
-# Security settings
-NoNewPrivileges=true
-PrivateTmp=true
-ReadWritePaths=/home/$(whoami)/water-system-logger
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-# Utwórz override file z credentials
-sudo mkdir -p /etc/systemd/system/water-system.service.d/
-sudo cp systemd-override.conf /etc/systemd/system/water-system.service.d/override.conf
-sudo chmod 600 /etc/systemd/system/water-system.service.d/override.conf
-sudo chown root:root /etc/systemd/system/water-system.service.d/override.conf
-```
-
-### Aktywacja usługi
-```bash
-# Przeładuj konfigurację systemd
-sudo systemctl daemon-reload
-
-# Włącz automatyczny start
-sudo systemctl enable water-system
-
-# Uruchom usługę
-sudo systemctl start water-system
-
-# Sprawdź status
-sudo systemctl status water-system
-```
-
-### Weryfikacja credentials w systemd
-```bash
-# Sprawdź czy systemd ma dostęp do credentials
-sudo systemctl show water-system --property=Environment
-
-# Test czy credentials są poprawnie załadowane
-sudo journalctl -u water-system --lines=10 | grep -E "(Environment variables loaded|credentials)"
-```
-
-## Krok 7: Konfiguracja firewall (opcjonalnie)
+### Setup UFW Firewall
 
 ```bash
-# Podstawowa konfiguracja UFW
+# Install UFW (if not installed)
+sudo apt install -y ufw
+
+# Default policies
 sudo ufw default deny incoming
 sudo ufw default allow outgoing
 
-# Zezwól na SSH, HTTP, HTTPS
+# Allow SSH (IMPORTANT: Do this BEFORE enabling!)
 sudo ufw allow ssh
+# or specific port: sudo ufw allow 22/tcp
+
+# Allow HTTP and HTTPS
 sudo ufw allow 80/tcp
 sudo ufw allow 443/tcp
 
-# Włącz firewall
+# Enable firewall
 sudo ufw --force enable
 
-# Sprawdź status
-sudo ufw status
+# Verify rules
+sudo ufw status verbose
 ```
 
-## Krok 8: Finalne testy
+**Expected output:**
+```
+Status: active
 
-### Test wszystkich endpointów
-```bash
-# Test przekierowania HTTP → HTTPS
-curl -I http://your-domain.com/health
-
-# Test HTTPS health check
-curl https://your-domain.com/health
-
-# Test admin panel
-curl -I https://your-domain.com/login
-
-# Test ESP32 API (oczekiwany 401 bez tokena)
-curl -I https://your-domain.com/api/water-events -X POST
+To                         Action      From
+--                         ------      ----
+22/tcp                     ALLOW       Anywhere
+80/tcp                     ALLOW       Anywhere
+443/tcp                    ALLOW       Anywhere
 ```
 
-### Sprawdzenie usług
+---
+
+## Step 8: Cron Jobs (Automated Maintenance)
+
+### Setup Database Cleanup
+
 ```bash
-# Status aplikacji
-sudo systemctl status water-system
+# Edit crontab
+crontab -e
 
-# Status nginx
-sudo systemctl status nginx
+# Add these lines:
+# Database cleanup - daily at 03:00
+0 3 * * * /opt/home-iot/db_cleanup.sh >> /opt/home-iot/cleanup.log 2>&1
 
-# Logi aplikacji
-sudo journalctl -u water-system --lines=10
-
-# Logi nginx
-sudo tail -5 /var/log/nginx/water-system.error.log
+# Log cleanup - daily at 02:00
+0 2 * * * /opt/home-iot/cleanup_logs.sh >> /opt/home-iot/cleanup.log 2>&1
 ```
 
-## Zarządzanie w trybie produkcyjnym
-
-### Podstawowe komendy
-```bash
-# Restart aplikacji
-sudo systemctl restart water-system
-
-# Sprawdzenie logów na żywo
-sudo journalctl -u water-system -f
-
-# Restart nginx
-sudo systemctl reload nginx
-
-# Sprawdzenie portów
-netstat -tln | grep ':80\|:443\|:5000\|:5001'
-```
-
-### Zarządzanie credentials w produkcji
+### Verify Cron Jobs
 
 ```bash
-# Rotacja credentials (bezpieczna metoda)
-python generate_credentials.py --output systemd --password-length 40
-
-# Backup obecnych credentials
-sudo cp /etc/systemd/system/water-system.service.d/override.conf \
-       /etc/systemd/system/water-system.service.d/override.conf.backup.$(date +%s)
-
-# Deploy nowych credentials
-sudo cp systemd-override.conf /etc/systemd/system/water-system.service.d/override.conf
-sudo chmod 600 /etc/systemd/system/water-system.service.d/override.conf
-sudo systemctl daemon-reload
-sudo systemctl restart water-system
-
-# Weryfikuj deployment
-curl -s https://your-domain.com/health
-```
-
-**📚 Więcej o credentials**: Zobacz [CREDENTIALS.md](CREDENTIALS.md) dla szczegółowych procedur rotacji credentials, security audit, backup i recovery.
-
-### Aktualizacja aplikacji
-```bash
-cd /home/$(whoami)/water-system-logger
-git pull
-source venv/bin/activate
-pip install -r requirements.txt
-sudo systemctl restart water-system
-```
-
-### Odnowienie certyfikatu SSL
-```bash
-# Test renewal
-sudo certbot renew --dry-run
-
-# Force renewal (jeśli potrzeba)
-sudo certbot renew --force-renewal
-sudo systemctl reload nginx
-```
-
-## Backup i monitoring
-
-### Backup bazy danych
-```bash
-# Utworzenie backup script
-cat > backup_database.sh << 'EOF'
-#!/bin/bash
-BACKUP_DIR="/home/$(whoami)/backups"
-DATE=$(date +%Y%m%d_%H%M%S)
-mkdir -p $BACKUP_DIR
-cp /home/$(whoami)/water-system-logger/water_events.db \
-   $BACKUP_DIR/water_events_$DATE.db
-# Usuń backupy starsze niż 30 dni
-find $BACKUP_DIR -name "water_events_*.db" -mtime +30 -delete
-EOF
-
-chmod +x backup_database.sh
-
-# Dodaj do crontab (backup co 24h)
-(crontab -l 2>/dev/null; echo "0 2 * * * /home/$(whoami)/water-system-logger/backup_database.sh") | crontab -
-
-
-## Automatyczne zarządzanie danymi
-
-### Database cleanup - usuwanie starych danych
-
-Automatyczne usuwanie rekordów starszych niż 60 dni dla utrzymania wydajności bazy danych.
-```bash
-# Utworzenie database cleanup script
-cat > db_cleanup.sh << 'EOF'
-#!/bin/bash
-
-# Konfiguracja
-DB_PATH="/home/$(whoami)/water-system-logger/water_events.db"
-LOG_FILE="/home/$(whoami)/water-system-logger/cleanup.log"
-RETENTION_DAYS=60
-
-# Sprawdź czy plik bazy istnieje
-if [ ! -f "$DB_PATH" ]; then
-    echo "$(date '+%Y-%m-%d %H:%M:%S'): ERROR - Database file not found: $DB_PATH" >> "$LOG_FILE"
-    exit 1
-fi
-
-# Sprawdź czy są stare rekordy do usunięcia
-OLD_RECORDS=$(sqlite3 "$DB_PATH" "SELECT COUNT(*) FROM water_events WHERE received_at < datetime('now', '-$RETENTION_DAYS days');")
-
-if [ "$OLD_RECORDS" -eq 0 ]; then
-    echo "$(date '+%Y-%m-%d %H:%M:%S'): INFO - No records older than $RETENTION_DAYS days found, skipping cleanup" >> "$LOG_FILE"
-    exit 0
-fi
-
-# Zapisz rozmiar pliku przed cleanup
-SIZE_BEFORE=$(stat -c%s "$DB_PATH")
-RECORDS_BEFORE=$(sqlite3 "$DB_PATH" "SELECT COUNT(*) FROM water_events;")
-
-# Wykonaj cleanup z obsługą błędów
-sqlite3 "$DB_PATH" << SQL
-.timeout 30000
-DELETE FROM water_events WHERE received_at < datetime('now', '-$RETENTION_DAYS days');
-VACUUM;
-ANALYZE;
-SQL
-
-# Sprawdź czy operacja się powiodła
-if [ $? -eq 0 ]; then
-    SIZE_AFTER=$(stat -c%s "$DB_PATH")
-    RECORDS_AFTER=$(sqlite3 "$DB_PATH" "SELECT COUNT(*) FROM water_events;")
-    DELETED_COUNT=$((RECORDS_BEFORE - RECORDS_AFTER))
-    
-    echo "$(date '+%Y-%m-%d %H:%M:%S'): SUCCESS - Database cleanup completed" >> "$LOG_FILE"
-    echo "  - Records before: $RECORDS_BEFORE, after: $RECORDS_AFTER" >> "$LOG_FILE"
-    echo "  - Old records found: $OLD_RECORDS, actually deleted: $DELETED_COUNT" >> "$LOG_FILE"
-    echo "  - File size: $SIZE_BEFORE -> $SIZE_AFTER bytes" >> "$LOG_FILE"
-    echo "  - Space saved: $((SIZE_BEFORE - SIZE_AFTER)) bytes" >> "$LOG_FILE"
-else
-    echo "$(date '+%Y-%m-%d %H:%M:%S'): ERROR - Database cleanup failed" >> "$LOG_FILE"
-    exit 1
-fi
-EOF
-
-chmod +x db_cleanup.sh
-
-# Dodaj do crontab (codziennie o 03:00)
-(crontab -l 2>/dev/null; echo "0 3 * * * /home/$(whoami)/water-system-logger/db_cleanup.sh") | crontab -
-
-### Log file cleanup - usuwanie starych logów
-
-
-# Utworzenie log cleanup script
-cat > cleanup_logs.sh << 'EOF'
-#!/bin/bash
-LOG_DIR="/home/$(whoami)/water-system-logger"
-LOG_FILE="$LOG_DIR/app.log"
-
-# Usuń logi starsze niż 7 dni
-find "$LOG_DIR" -name "app.log*" -type f -mtime +7 -delete
-
-# Opcjonalnie: wyczyść duży plik app.log jeśli > 50MB
-if [ -f "$LOG_FILE" ] && [ $(stat -c%s "$LOG_FILE") -gt 52428800 ]; then
-    # Zostaw ostatnie 1000 linii
-    tail -n 1000 "$LOG_FILE" > "$LOG_FILE.tmp" && mv "$LOG_FILE.tmp" "$LOG_FILE"
-fi
-
-echo "$(date): Log cleanup completed" >> "$LOG_DIR/cleanup.log"
-EOF
-
-chmod +x cleanup_logs.sh
-
-# Dodaj do crontab (codziennie o 02:00)
-(crontab -l 2>/dev/null; echo "0 2 * * * /home/$(whoami)/water-system-logger/cleanup_logs.sh") | crontab -
-```
-# Wyświetl wszystkie zaplanowane zadania
+# List cron jobs
 crontab -l
 
-# Sprawdź czy cron service działa
-systemctl status cron
+# Test scripts manually
+cd /opt/home-iot
+./db_cleanup.sh
+./cleanup_logs.sh
 
-# Sprawdź logi cron
-sudo journalctl -u cron --since "24 hours ago"
-
-# Sprawdź logi cleanup operacji
-tail -20 /home/$(whoami)/water-system-logger/cleanup.log
-
-# Sprawdź rozmiar bazy danych
-ls -lh /home/$(whoami)/water-system-logger/water_events.db
-
-# Sprawdź rozmiar logów
-ls -lh /home/$(whoami)/water-system-logger/app.log*
-
-# Sprawdź statystyki bazy po cleanup
-sqlite3 /home/$(whoami)/water-system-logger/water_events.db "
-SELECT 
-    COUNT(*) as total_records,
-    MIN(received_at) as oldest_record,
-    MAX(received_at) as newest_record
-FROM water_events;"
-
-
-### Monitoring logów
-```bash
-# Sprawdzenie błędów aplikacji
-sudo journalctl -u water-system --since "1 hour ago" | grep -i error
-
-# Sprawdzenie dostępu nginx
-sudo tail -100 /var/log/nginx/water-system.access.log | grep -v "200\|301\|302"
-
-# Sprawdzenie wykorzystania zasobów
-sudo systemctl show water-system --property=MemoryCurrent
+# Check logs
+tail -20 cleanup.log
 ```
 
-### Monitoring credentials
+**→ Backup strategies:** [guides/BACKUP-RESTORE.md](guides/BACKUP-RESTORE.md)
+
+---
+
+## Step 9: Verification & Testing
+
+### Complete System Test
 
 ```bash
-# Sprawdź wiek credentials (rotacja co 90 dni zalecana)
-echo "Credentials age:"
-sudo stat -c %Y /etc/systemd/system/water-system.service.d/override.conf | xargs -I {} date -d @{}
+# 1. Health Check (should return JSON)
+curl -s https://YOUR_DOMAIN.com/health | jq
 
-# Monitor nieudanych prób logowania
-sudo journalctl -u water-system | grep -i "failed\|unauthorized" | tail -10
+# Expected: {"status": "healthy", "database": "connected", ...}
 
-# Sprawdź czy credentials nie są widoczne w procesach
-ps aux | grep water-system | grep -v grep
+# 2. Admin Panel (should return 200)
+curl -I https://YOUR_DOMAIN.com/login
+
+# 3. API Endpoint (should return 401 without token - this is correct!)
+curl -I https://YOUR_DOMAIN.com/api/water-events -X POST
+
+# 4. Check systemd service
+sudo systemctl status home-iot
+
+# 5. Check nginx
+sudo systemctl status nginx
+
+# 6. Check logs
+sudo journalctl -u home-iot -n 20 --no-pager
+sudo tail -20 /var/log/nginx/home-iot.access.log
+sudo tail -20 /var/log/nginx/home-iot.error.log
+
+# 7. Check database
+sqlite3 /opt/home-iot/water_events.db "SELECT COUNT(*) FROM water_events;"
 ```
 
-## Rozwiązywanie problemów
+### Test ESP32 API
 
-### Aplikacja nie startuje
 ```bash
-# Sprawdź logi
-sudo journalctl -u water-system --lines=20
+# Replace YOUR_API_TOKEN with token from .env
+curl -X POST https://YOUR_DOMAIN.com/api/water-events \
+  -H "Authorization: Bearer YOUR_API_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "device_id": "DOLEWKA",
+    "timestamp": "2025-10-04T12:00:00",
+    "unix_time": 1728043200,
+    "event_type": "AUTO_PUMP",
+    "volume_ml": 250,
+    "water_status": "OK",
+    "system_status": "OK"
+  }'
 
-# Sprawdź credentials
-sudo systemctl show water-system --property=Environment | grep -c "WATER_SYSTEM"
+# Expected: {"success": true, "event_id": 1, ...}
+```
 
-# Test ręczny
-cd /home/$(whoami)/water-system-logger
+### Test Admin Panel (Browser)
+
+1. Open: `https://YOUR_DOMAIN.com/login`
+2. Enter admin password from `.env`
+3. Navigate dashboard
+4. Test device-specific admin panels
+5. Run SQL queries
+6. Export data
+
+---
+
+## Post-Deployment
+
+### Security Checklist
+
+- [ ] Strong, unique credentials generated
+- [ ] `.env` file has 600 permissions
+- [ ] Firewall (UFW) enabled
+- [ ] SSL/TLS working (HTTPS)
+- [ ] HTTP redirects to HTTPS
+- [ ] Only necessary ports open (22, 80, 443)
+- [ ] SSH key authentication enabled (disable password login)
+- [ ] Regular backups scheduled
+- [ ] Monitoring configured
+
+### Monitoring Setup
+
+```bash
+# Monitor application logs
+sudo journalctl -u home-iot -f
+
+# Monitor nginx logs
+sudo tail -f /var/log/nginx/home-iot.access.log
+
+# Check disk space regularly
+df -h
+
+# Monitor database size
+ls -lh /opt/home-iot/water_events.db
+```
+
+### Regular Maintenance Tasks
+
+**Daily (automated via cron):**
+- Database cleanup (old records)
+- Log rotation
+
+**Weekly:**
+- Check application logs for errors
+- Review failed login attempts
+- Monitor disk space
+
+**Monthly:**
+- Rotate credentials (recommended)
+- Review and update dependencies
+- Check for security updates
+- Test backup restoration
+
+**→ Credential rotation:** [guides/CREDENTIALS.md](guides/CREDENTIALS.md#rotation)
+
+---
+
+## Updating the Application
+
+### Standard Update Process
+
+```bash
+# 1. Stop service
+sudo systemctl stop home-iot
+
+# 2. Backup database
+cd /opt/home-iot
+cp water_events.db water_events.db.backup.$(date +%Y%m%d)
+
+# 3. Pull updates
+git pull origin main
+
+# 4. Update dependencies (if needed)
 source venv/bin/activate
-python app.py
+pip install -r requirements.txt --upgrade
+deactivate
+
+# 5. Restart service
+sudo systemctl start home-iot
+
+# 6. Verify
+sudo systemctl status home-iot
+curl -s https://YOUR_DOMAIN.com/health | jq
+```
+
+### Rollback Procedure
+
+```bash
+# If update fails:
+
+# 1. Stop service
+sudo systemctl stop home-iot
+
+# 2. Restore previous version
+git log --oneline  # Find previous commit
+git reset --hard PREVIOUS_COMMIT_HASH
+
+# 3. Restore database (if needed)
+cp water_events.db.backup.YYYYMMDD water_events.db
+
+# 4. Restart
+sudo systemctl start home-iot
+```
+
+---
+
+## Troubleshooting
+
+### Service Won't Start
+
+```bash
+# Check detailed logs
+sudo journalctl -u home-iot -n 50 --no-pager
+
+# Common issues:
+# 1. Missing .env file
+ls -la /opt/home-iot/.env
+
+# 2. Wrong permissions
+sudo chown -R $USER:$USER /opt/home-iot
+chmod 600 /opt/home-iot/.env
+
+# 3. Port already in use
+netstat -tln | grep -E ':(5000|5001)'
+# If ports are occupied, kill process or change ports in .env
+
+# 4. Database lock
+rm /opt/home-iot/water_events.db-journal
 ```
 
 ### Nginx 502 Bad Gateway
+
 ```bash
-# Sprawdź czy aplikacja działa
-netstat -tln | grep ':5000\|:5001'
+# Check if Flask apps are running
+netstat -tln | grep -E ':(5000|5001)'
 
-# Restart aplikacji
+# Check Flask logs
+sudo journalctl -u home-iot -n 20 --no-pager
 
+# Restart Flask service
+sudo systemctl restart home-iot
 
-# Sprawdź logi nginx
-sudo tail -10 /var/log/nginx/water-system.error.log
+# Check nginx error logs
+sudo tail -20 /var/log/nginx/home-iot.error.log
 ```
 
-### Problemy z SSL
+### SSL Certificate Issues
+
 ```bash
-# Sprawdź certyfikat
+# Check certificate status
 sudo certbot certificates
 
-# Test konfiguracji nginx
+# Renew certificate manually
+sudo certbot renew --force-renewal
+
+# Check nginx SSL configuration
 sudo nginx -t
-
-# Sprawdź daty certyfikatu
-echo | openssl s_client -connect your-domain.com:443 | openssl x509 -noout -dates
 ```
 
-### Problemy z credentials
+### Database Issues
 
 ```bash
-# Missing credentials error
-python generate_credentials.py --output env  # Development
-sudo systemctl edit water-system             # Production
+# Check database integrity
+sqlite3 /opt/home-iot/water_events.db "PRAGMA integrity_check;"
 
-# Invalid credentials (401 errors)
-sudo journalctl -u water-system | grep -i "unauthorized\|invalid"
+# Vacuum database (optimize)
+sqlite3 /opt/home-iot/water_events.db "VACUUM;"
 
-# File permission issues  
-sudo chmod 600 /etc/systemd/system/water-system.service.d/override.conf
-sudo systemctl daemon-reload
+# Check database size
+ls -lh /opt/home-iot/water_events.db
 ```
 
-## Bezpieczeństwo
+**→ More solutions:** [troubleshooting/COMMON-ISSUES.md](troubleshooting/COMMON-ISSUES.md)
 
-### Podstawowe zabezpieczenia
+---
+
+## Performance Optimization
+
+### Enable Nginx Caching
 
 ```bash
-# Zmiana domyślnych credentials
-python generate_credentials.py --output both --password-length 40
-
-# File permissions audit
-sudo find /etc/systemd/system/water-system.service.d/ -type f -exec ls -la {} \;
-
-# Network security
-sudo ufw status
+# Add to nginx config (inside server block)
+sudo nano /etc/nginx/sites-available/home-iot
 ```
 
-### Monitoring bezpieczeństwa
+Add before location blocks:
+```nginx
+# Cache static content
+location ~* \.(jpg|jpeg|png|gif|ico|css|js)$ {
+    expires 1M;
+    add_header Cache-Control "public, immutable";
+}
+
+# Gzip compression
+gzip on;
+gzip_types text/plain text/css application/json application/javascript text/xml;
+```
+
+### Database Optimization
+
 ```bash
-# Sprawdzenie nieudanych prób logowania
-sudo journalctl -u water-system | grep -i "failed\|locked\|invalid"
+# Run ANALYZE to update statistics
+sqlite3 /opt/home-iot/water_events.db "ANALYZE;"
 
-# Sprawdzenie podejrzanego ruchu
-sudo grep "401\|403\|404" /var/log/nginx/water-system.access.log | tail -10
-
-# Credential audit
-echo "Last credential change:"
-sudo stat -c %y /etc/systemd/system/water-system.service.d/override.conf
+# Check query performance
+sqlite3 /opt/home-iot/water_events.db "EXPLAIN QUERY PLAN SELECT * FROM water_events WHERE device_id = 'DOLEWKA';"
 ```
 
-## URLs produkcyjne
+---
 
-Po wdrożeniu aplikacja będzie dostępna pod:
+## Next Steps
 
-- **Admin Panel**: `https://your-domain.com/`
-- **ESP32 API**: `https://your-domain.com/api/`
-- **Health Check**: `https://your-domain.com/health`
+### Configure ESP32 Devices
+- Update ESP32 firmware with production domain
+- Configure API endpoint: `https://YOUR_DOMAIN.com/api/water-events`
+- Add API token from `.env`
 
-## Dodatkowe zasoby
+**→ Hardware guide:** [guides/ESP32-SETUP.md](guides/ESP32-SETUP.md)
 
-- **[CREDENTIALS.md](CREDENTIALS.md)** - Szczegółowy przewodnik zarządzania credentials
-- **[README.md](README.md)** - Opis projektu i podstawowa dokumentacja
-- **ESP32 Integration** - Zobacz przykłady w katalogu `examples/` (jeśli dostępny)
+### Add More Device Types
+- Configure new device types in `device_config.py`
+- Add device-specific queries
 
-Zmień `your-domain.com` na swoją rzeczywistą domenę we wszystkich plikach konfiguracyjnych.
+**→ Multi-device guide:** [guides/MULTI-DEVICE.md](guides/MULTI-DEVICE.md)
+
+### Setup Monitoring
+- Configure uptime monitoring (UptimeRobot, etc.)
+- Setup log analysis tools
+- Configure alerting for errors
+
+### Backup Strategy
+- Automated database backups
+- Offsite backup storage
+- Backup testing and restoration
+
+**→ Backup guide:** [guides/BACKUP-RESTORE.md](guides/BACKUP-RESTORE.md)
+
+---
+
+## Related Documentation
+
+- 🔑 [Credentials Management](guides/CREDENTIALS.md)
+- 📱 [Multi-Device Setup](guides/MULTI-DEVICE.md)
+- 💾 [Backup & Restore](guides/BACKUP-RESTORE.md)
+- 🔒 [Security Architecture](architecture/SECURITY.md)
+- 🗄️ [Database Schema](architecture/DATABASE.md)
+- ❓ [FAQ](troubleshooting/FAQ.md)
+
+---
+
+**Deployment complete! Your Home IoT Platform is now running in production.** 🎉
