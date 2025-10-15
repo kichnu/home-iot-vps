@@ -251,7 +251,7 @@
             color: #7f8c8d;
             font-size: 14px;
         }
-
+/* 
         .results-table {
             width: 100%;
             border-collapse: collapse;
@@ -283,7 +283,7 @@
         .results-table td {
             padding: 8px 4px;
             text-align: center;
-            /* border-bottom: 1px solid #ecf0f1; */
+        
             border-right: 1px solid #ecf0f1;
             word-wrap: break-word;
             overflow-wrap: break-word;
@@ -329,7 +329,7 @@
             font-size: 12px;
             max-width: 100px;
             padding: 4px 4px;
-        }
+        } */
 
         /* Device-type specific column styling */
         .th-id, .th-device_id, .th-timestamp, .th-event_type, .th-received_at {
@@ -337,7 +337,7 @@
         }
 
         .th-pump_duration, .th-pump_attempts, .th-volume_ml, .th-time_gap_1, 
-        .th-time_gap_2, .th-water_trigger_time {
+        .th-time_gap_2, .th-water_trigger_time, .th-daily_volume_ml {
             background-color: rgb(106, 191, 248);
         }
 
@@ -394,6 +394,166 @@
             border-top: 2px solid #af4a55; */
             background-color: rgb(252, 107, 107);
 
+        }
+
+
+        /* ############################################################################################################################ */
+
+
+        /* ============================================
+        TRANSPONOWANA TABELA - Horizontal Layout
+        ============================================ */
+
+        .table-transposed-container {
+            width: 100%;
+            overflow-x: auto;
+            overflow-y: visible;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background: white;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .results-table-transposed {
+            border-collapse: separate;
+            border-spacing: 0;
+            width: auto;
+            min-width: 100%;
+            background: white;
+        }
+
+        /* Nagłówki rekordów (u góry) */
+        .results-table-transposed thead {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .results-table-transposed thead th {
+            background: linear-gradient(135deg, var(--device-color, #667eea) 0%, var(--device-color-dark, #764ba2) 100%);
+            color: white;
+            padding: 12px 20px;
+            text-align: center;
+            font-size: 13px;
+            font-weight: 600;
+            border-right: 1px solid rgba(255,255,255,0.2);
+            border-bottom: 2px solid white;
+            white-space: nowrap;
+            min-width: 120px;
+            vertical-align: middle;
+        }
+
+        /* Pierwsza kolumna nagłówka (sticky) */
+        .field-header.sticky-col {
+            position: sticky;
+            left: 0;
+            z-index: 20;
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%) !important;
+            /* min-width: 180px !important;/ */
+            max-width: 180px;
+            border-right: 3px solid #1a252f !important;
+            font-weight: bold;
+        }
+
+        /* Numer rekordu w nagłówku */
+        .record-number {
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        /* Nazwy pól (lewa kolumna - sticky) */
+        .field-name.sticky-col {
+            position: sticky;
+            left: 0;
+            z-index: 15;
+            font-weight: 600;
+            color: #2c3e50;
+            padding: 10px 12px;
+            text-align: left;
+            border-right: 3px solid #ddd;
+            border-bottom: 1px solid #e0e0e0;
+            white-space: nowrap;
+            min-width: 160px;
+            max-width: 180px;
+            font-size: 13px;
+            background: #f8f9fa;
+        }
+
+        /* Komórki z danymi */
+        .data-cell {
+            padding: 10px 15px;
+            border-right: 1px solid #e8e8e8;
+            border-bottom: 1px solid #e8e8e8;
+            text-align: center;
+            white-space: nowrap;
+            min-width: 120px;
+            font-size: 12px;
+            background: white;
+        }
+
+        /* Kategorie kolorów dla pól */
+        .cat-general { background: #ecf0f1 !important; }
+        .cat-sensor { background: #d5e8f7 !important; }
+        .cat-errors { background: #fadbd8 !important; }
+        .cat-temp { background: #fdebd0 !important; }
+        .cat-security { background: #e8daef !important; }
+        .cat-status { background: #d4e9e2 !important; }
+        .cat-default { background: #f8f9fa !important; }
+
+        /* Kolory dla nagłówków rekordów (event types) */
+        .record-header.row-auto-pump { 
+            background: linear-gradient(135deg, #5dade2 0%, #3498db 100%) !important; 
+        }
+        .record-header.row-manual-normal { 
+            background: linear-gradient(135deg, #58d68d 0%, #27ae60 100%) !important; 
+        }
+        .record-header.row-manual-extended { 
+            background: linear-gradient(135deg, #5dade2 0%, #3498db 100%) !important; 
+        }
+        .record-header.row-auto-complete { 
+            background: linear-gradient(135deg, #85929e 0%, #5d6d7e 100%) !important; 
+        }
+        .record-header.row-stats-reset { 
+            background: linear-gradient(135deg, #f4d03f 0%, #f39c12 100%) !important; 
+        }
+        .record-header.system-status-error { 
+            background: linear-gradient(135deg, #ec7063 0%, #e74c3c 100%) !important; 
+        }
+
+        /* Hover efekty */
+        .results-table-transposed tbody tr:hover .field-name {
+            background: #e3f2fd !important;
+            font-weight: bold;
+        }
+
+        .results-table-transposed tbody tr:hover .data-cell {
+            background: #f0f8ff !important;
+        }
+
+        /* Null values */
+        .null-value {
+            color: #bdc3c7;
+            font-style: italic;
+            font-size: 11px;
+        }
+
+        /* Scrollbar styling */
+        .table-transposed-container::-webkit-scrollbar {
+            height: 12px;
+        }
+
+        .table-transposed-container::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 6px;
+        }
+
+        .table-transposed-container::-webkit-scrollbar-thumb {
+            background: linear-gradient(135deg, var(--device-color, #667eea) 0%, var(--device-color-dark, #764ba2) 100%);
+            border-radius: 6px;
+        }
+
+        .table-transposed-container::-webkit-scrollbar-thumb:hover {
+            background: var(--device-color-dark, #764ba2);
         }
 
 
@@ -552,7 +712,7 @@
                 {% if device_context %}
                     {{ device_context.icon }} {{ device_context.name }} - Admin Panel
                 {% else %}
-                    🐠 Aquarium System Database - Admin Panel
+                    🐠 Dolewka Database - Admin Panel
                 {% endif %}
             </h1>
             <div class="subtitle">
@@ -694,31 +854,32 @@
         // Device-specific column translation
         function translateColumnName(columnName) {
             const baseTranslations = {
-                'id': 'ID',
-                'device_id': 'Device ID',
+                'id': 'Event No.',
+                'device_id': 'Device',
                 'device_type': 'Device Type',
-                'timestamp': 'Event Time',
+                'timestamp': 'Event Time(UTC)',
                 'unix_time': 'Unix Time',
                 'event_type': 'Event Type',
                 'water_status': 'Water Status',
                 'system_status': 'System Status',
-                'received_at': 'Log Receipt Time',
+                'received_at': 'Event Time',
                 'client_ip': 'Client IP'
             };
 
             const deviceSpecificTranslations = {
                 'water_system': {
                     'volume_ml': 'Water Volume (ml)',
-                    'time_gap_1': 'Turn-ON Delay',
-                    'time_gap_2': 'Turn-OFF Delay',
-                    'water_trigger_time': 'Water Fill Delay',
-                    'pump_duration': 'Pump Run Time',
+                    'time_gap_1': 'Trigger Sensor(ON)',
+                    'time_gap_2': 'Trigger Sensor(OFF)',
+                    'water_trigger_time': 'Refill Response(s)',
+                    'pump_duration': 'Pump Run Time(s)',
                     'pump_attempts': 'Pump Attempts',
-                    'gap1_fail_sum': 'Turn-ON Error Count',
-                    'gap2_fail_sum': 'Turn-OFF Error Count', 
-                    'water_fail_sum': 'Water Fill Errors',
+                    'gap1_fail_sum': 'Sensor(ON) Errors',
+                    'gap2_fail_sum': 'Sensor(OFF) Errors', 
+                    'water_fail_sum': 'Refill Errors',
                     'last_reset_timestamp': 'Last Reset',
-                    'algorithm_data': 'Event Log'
+                    'algorithm_data': 'Event Log',
+                    'daily_volume_ml': 'Water Added(ml)',
                 },
                 'temperature_sensor': {
                     'temperature': 'Temperature (°C)',
@@ -772,6 +933,72 @@
             //         loadLegacyQueries();
             //     });
         // }
+
+        // ===== TIMEZONE CONVERSION UTILITIES =====
+        /**
+         * Convert unix timestamp to local Polish time
+         * @param {number} unixTime - Unix timestamp (seconds)
+         * @param {boolean} includeSeconds - Include seconds in output
+         * @returns {string} Formatted local time
+         */
+        function formatLocalTime(unixTime, includeSeconds = true) {
+            if (!unixTime || unixTime === 0) return 'N/A';
+
+            const date = new Date(unixTime * 1000); // Convert to milliseconds
+
+            const options = {
+                timeZone: 'Europe/Warsaw',
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false
+            };
+
+            if (includeSeconds) {
+                options.second = '2-digit';
+            }
+
+            return date.toLocaleString('pl-PL', options);
+        }
+
+        /**
+         * Format timestamp column for display
+         * Shows local time with UTC tooltip
+         */
+        function formatTimestampCell(unixTime) {
+            if (!unixTime || unixTime === 0) return 'N/A';
+
+            const localTime = formatLocalTime(unixTime, true);
+            const utcTime = new Date(unixTime * 1000).toISOString();
+
+            return `
+                <span title="UTC: ${utcTime}" style="cursor: help; border-bottom: 1px dotted #666;">
+                    ${localTime} CET
+                </span>
+            `;
+        }
+
+        /**
+         * Format received_at (already in UTC string format)
+         */
+        function formatReceivedAt(receivedAtString) {
+            if (!receivedAtString) return 'N/A';
+
+            const date = new Date(receivedAtString);
+
+            return date.toLocaleString('pl-PL', {
+                timeZone: 'Europe/Warsaw',
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: false
+            }) + ' CET';
+        }
 
         function loadDeviceQueries() {
             const container = document.getElementById('quickQueriesContainer');
@@ -964,7 +1191,7 @@
 
         function displayResults(data) {
             const container = document.getElementById('resultsContainer');
-            
+
             if (!data || data.length === 0) {
                 container.innerHTML = '<div class="no-results">No results found</div>';
                 updateResultsInfo(0);
@@ -972,108 +1199,117 @@
                 return;
             }
 
-            // Create table
-            const table = document.createElement('table');
-            table.className = 'results-table';
-
-            // Create header
-            const thead = document.createElement('thead');
-            const headerRow = document.createElement('tr');
-
             const preferredColumnOrder = [
-                'id','device_id', 'device_type', 'timestamp', 'event_type', 'pump_duration', 'pump_attempts', 'volume_ml', 'time_gap_1', 'time_gap_2'
-                , 'water_trigger_time','gap1_fail_sum', 'gap2_fail_sum', 'water_fail_sum', 'temperature', 'humidity', 'zone_status', 'motion_detected', 'system_status',
+                'id','device_id', 'device_type', 'timestamp', 'event_type',
+                'pump_duration', 'volume_ml', 'pump_attempts',
+                'time_gap_1', 'gap1_fail_sum', 'time_gap_2', 'gap2_fail_sum'
+                , 'water_trigger_time', 'water_fail_sum',
+                  'daily_volume_ml', 'temperature', 'humidity', 'zone_status', 'motion_detected', 'system_status',
                  'client_ip', 'water_status', 'received_at', 'last_reset_timestamp',
                 , 'unix_time', 'algorithm_data', 
             ];
 
-            const columnCategories = {
-                'id': 'th-id',
-                'device_id': 'th-device_id',
-                'device_type': 'th-device_type',
-                'timestamp': 'th-timestamp',
-                'event_type': 'th-event_type',
-                'pump_duration': 'th-pump_duration',
-                'pump_attempts': 'th-pump_attempts',
-                'volume_ml': 'th-volume_ml',
-                'time_gap_1': 'th-time_gap_1',
-                'time_gap_2': 'th-time_gap_2',
-                'water_trigger_time': 'th-water_trigger_time',
-                'gap1_fail_sum': 'th-gap1_fail_sum',
-                'gap2_fail_sum': 'th-gap2_fail_sum',
-                'water_fail_sum': 'th-water_fail_sum',
-                'temperature': 'th-temperature',
-                'humidity': 'th-humidity',
-                'zone_status': 'th-zone_status',
-                'motion_detected': 'th-motion_detected',
-                'client_ip': 'th-client_ip',
-                'water_status': 'th-water_status',
-                'system_status': 'th-system_status',
-                'received_at': 'th-received_at',
-                'last_reset_timestamp': 'th-last_reset_timestamp',
-                'unix_time': 'th-unik_time',
-                'algorithm_data': 'th-algorithm_data',
-            };
 
             const availableColumns = Object.keys(data[0]);
-            const columnKeys = preferredColumnOrder.filter(col => availableColumns.includes(col))
-                             .concat(availableColumns.filter(col => !preferredColumnOrder.includes(col)));
+            const orderedColumns = preferredColumnOrder
+                .filter(col => availableColumns.includes(col))
+                .concat(availableColumns.filter(col => !preferredColumnOrder.includes(col)));
+
+            // 2. Odwróć kolejność - najnowsze po lewej (zaraz przy sticky column)
+            const orderedData = [...data];
+
+            // 3. Mapowanie kategorii kolorów
+            const columnCategories = {
+                'id': 'cat-general',
+                'device_id': 'cat-general',
+                'device_type': 'cat-general',
+                'timestamp': 'cat-general',
+                'event_type': 'cat-general',
+                'received_at': 'cat-general',
+                'pump_duration': 'cat-sensor',
+                'pump_attempts': 'cat-sensor',
+                'volume_ml': 'cat-sensor',
+                'time_gap_1': 'cat-sensor',
+                'time_gap_2': 'cat-sensor',
+                'water_trigger_time': 'cat-sensor',
+                'gap1_fail_sum': 'cat-errors',
+                'gap2_fail_sum': 'cat-errors',
+                'water_fail_sum': 'cat-errors',
+                'temperature': 'cat-temp',
+                'humidity': 'cat-temp',
+                'zone_status': 'cat-security',
+                'motion_detected': 'cat-security',
+                'water_status': 'cat-status',
+                'system_status': 'cat-status'
+            };
+
+            // 4. Buduj HTML tabeli (transponowanej)
+            let html = '<div class="table-transposed-container">';
+            html += '<table class="results-table-transposed">';
             
-            columnKeys.forEach(key => {
-                const th = document.createElement('th');
-                const span = document.createElement('span');
-                span.textContent = translateColumnName(key);
-                th.appendChild(span);
+            // THEAD: Nagłówki kolumn = numery rekordów
+            html += '<thead><tr>';
+            html += '<th class="field-header sticky-col">Field Name</th>';
+            orderedData.forEach((row, index) => {
+                const recordNumber = data.length - index; // Najnowsze mają największy numer
+                const eventType = row['event_type'] || '';
+                const systemStatus = row['system_status'] || '';
 
-                const categoryClass = columnCategories[key] || 'th-default';
-                th.classList.add(categoryClass);
-
-                headerRow.appendChild(th);
-            });
-
-            thead.appendChild(headerRow);
-            table.appendChild(thead);
-
-            // Sprawdź liczbę kolumn i dodaj klasę CSS
-            if (columnKeys.length < 8) {
-                table.classList.add('few-columns');
-            }
-
-            // Create body
-            const tbody = document.createElement('tbody');
-            
-            data.forEach(row => {
-                const tr = document.createElement('tr');
-
-                    const eventType = row['event_type'];
+                // Klasy dla nagłówka rekordu
+                let headerClass = 'record-header';
                 if (eventType) {
-                    const rowClass = getEventTypeRowClass(eventType);
-                    tr.classList.add(rowClass);
+                    const eventClass = getEventTypeRowClass(eventType);
+                    headerClass += ' ' + eventClass;
+                }
+                if (systemStatus === 'ERROR') {
+                    headerClass += ' system-status-error';
                 }
 
-                       const systemStatus = row['system_status'];
-                if (systemStatus == "ERROR") {
-                    tr.classList.add("system-status-error");
-                }
-
-                columnKeys.forEach(columnName => {
-                    const td = document.createElement('td');
-                    const value = row[columnName];
-                    const translatedValue = translateCellValue(columnName, value);
-                    td.textContent = (translatedValue !== null && translatedValue !== undefined) ? translatedValue : '';
-                    tr.appendChild(td);
-                });
-                tbody.appendChild(tr);
+                html += `<th class="${headerClass}" title="Record #${recordNumber}">
+                            <div class="record-number">#${recordNumber}</div>
+                         </th>`;
             });
-            
-            table.appendChild(tbody);
-            container.innerHTML = '';
-            container.appendChild(table);
+            html += '</tr></thead>';
+
+            // TBODY: Każdy wiersz = jedno pole
+            html += '<tbody>';
+            orderedColumns.forEach(fieldName => {
+                const categoryClass = columnCategories[fieldName] || 'cat-default';
+
+                html += '<tr>';
+                // Pierwsza kolumna: nazwa pola (sticky)
+                html += `<td class="field-name sticky-col ${categoryClass}" title="${fieldName}">
+                            ${translateColumnName(fieldName)}
+                         </td>`;
+                     
+                // Kolejne kolumny: wartości z każdego rekordu
+                orderedData.forEach(record => {
+                    const value = record[fieldName];
+                    const translatedValue = translateCellValue(fieldName, value);
+                    const displayValue = (translatedValue !== null && translatedValue !== undefined) 
+                        ? translatedValue 
+                        : '<span class="null-value">—</span>';
+
+                    html += `<td class="data-cell">${displayValue}</td>`;
+                });
+
+                html += '</tr>';
+            });
+            html += '</tbody>';
+
+            html += '</table>';
+            html += '</div>';
+
+            container.innerHTML = html;
 
             // Show export options
             document.getElementById('exportSection').style.display = 'flex';
             setupExportLinks();
-        }
+
+            enableHorizontalScrollOnWheel();
+
+            console.log(`✅ Transposed table: ${orderedColumns.length} fields × ${orderedData.length} records`);
+        }   
 
         function getEventTypeRowClass(eventType) {
             const eventTypeClasses = {
@@ -1177,6 +1413,8 @@
             executeDeviceQuery(type);
         }
 
+        // #####################################################################################################################
+
         function logout() {
             if (confirm('Are you sure you want to logout?')) {
                 fetch('/logout', { method: 'POST' })
@@ -1218,6 +1456,117 @@
                     });
             }
         }, 5 * 60 * 1000); // Every 5 minutes
+
+
+  
+
+            // ============================================
+        // HORIZONTAL SCROLL Z AKUMULACJĄ - Smooth UX
+        // ============================================
+
+        let scrollTimeout = null;
+        let accumulatedScroll = 0; // Bufor dla kręceń
+        let isScrolling = false;
+
+        // Funkcja dodająca horizontal scroll do tabeli
+        function enableHorizontalScrollOnWheel() {
+            const containers = document.querySelectorAll('.table-transposed-container');
+
+            containers.forEach(container => {
+                // Usuń stary listener jeśli istnieje
+                container.removeEventListener('wheel', handleAccumulatedScroll);
+
+                // Dodaj nowy listener
+                container.addEventListener('wheel', handleAccumulatedScroll, { passive: false });
+            });
+
+            console.log('✅ Horizontal scroll with accumulation enabled');
+        }
+
+        // Handler dla wheel event z akumulacją
+        function handleAccumulatedScroll(e) {
+            const container = e.currentTarget;
+
+            // Sprawdź czy tabela ma horizontal scroll
+            const hasHorizontalScroll = container.scrollWidth > container.clientWidth;
+
+            if (!hasHorizontalScroll) {
+                return; // Brak horizontal scroll, pozwól na normalny scroll strony
+            }
+
+            // Zapobiegaj domyślnemu pionowemu scrollowi
+            e.preventDefault();
+
+            // Dynamicznie oblicz szerokość kolumny
+            const firstDataCell = container.querySelector('.data-cell');
+            let columnWidth = 120; // fallback
+
+            if (firstDataCell) {
+                const computedStyle = window.getComputedStyle(firstDataCell);
+                columnWidth = firstDataCell.offsetWidth + 
+                             parseInt(computedStyle.marginLeft) + 
+                             parseInt(computedStyle.marginRight);
+            }
+
+            // Określ kierunek scrollowania
+            const direction = e.deltaY > 0 ? 1 : -1;
+
+            // AKUMULUJ przesunięcie (zbieraj wszystkie kręcenia)
+            accumulatedScroll += columnWidth * direction;
+
+            // Anuluj poprzedni timeout
+            clearTimeout(scrollTimeout);
+
+            // Ustaw nowy timeout - wykonaj scroll po zakończeniu serii kręceń
+            scrollTimeout = setTimeout(() => {
+                executeAccumulatedScroll(container, columnWidth);
+            }, 100); // 100ms debounce - jak długo czeka po ostatnim kręceniu
+        }
+
+        // Wykonaj zsumowany scroll z animacją
+        function executeAccumulatedScroll(container, columnWidth) {
+            if (accumulatedScroll === 0) {
+                return; // Nic do scrollowania
+            }
+
+            // Wykonaj JEDEN płynny scroll o całą zsumowaną wartość
+            const targetScroll = container.scrollLeft + accumulatedScroll;
+
+            container.scrollTo({ 
+                left: targetScroll, 
+                behavior: 'smooth' 
+            });
+
+            // Resetuj akumulator
+            accumulatedScroll = 0;
+
+            // Po zakończeniu animacji smooth, snap do najbliższej kolumny
+            // Smooth scroll trwa ~300-500ms, więc czekamy dłużej
+            setTimeout(() => {
+                snapToNearestColumn(container, columnWidth);
+            }, 400); // Czekaj na zakończenie smooth scroll
+        }
+
+        // Snap do najbliższej kolumny
+        function snapToNearestColumn(container, columnWidth) {
+            const currentScroll = container.scrollLeft;
+            const nearestColumn = Math.round(currentScroll / columnWidth) * columnWidth;
+
+            // Tylko snap jeśli różnica jest znacząca (> 5px)
+            if (Math.abs(currentScroll - nearestColumn) > 5) {
+                container.scrollTo({ 
+                    left: nearestColumn, 
+                    behavior: 'smooth' 
+                });        
+            }
+        }
+
+        // Wywołaj po załadowaniu strony
+        document.addEventListener('DOMContentLoaded', function() {
+            enableHorizontalScrollOnWheel();
+        });
+
+   
     </script>
 </body>
 </html>

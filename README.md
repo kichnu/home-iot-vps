@@ -249,11 +249,25 @@ curl -X POST http://localhost:5000/api/water-events \
 
 ## 🔒 Security
 
-- **Authentication:** Bearer token for API, session-based for admin panel
-- **Rate Limiting:** Automatic account lockout after failed attempts
-- **SSL/TLS:** Production deployment with Let's Encrypt
+### Authentication & Authorization
+- **API Authentication:** Bearer token for ESP32 devices
+- **Admin Panel:** Session-based authentication with secure cookies
+- **Timing Attack Protection:** Constant-time comparison for credentials
+- **Session Security:** HttpOnly, SameSite cookies with configurable timeout
+
+### Rate Limiting & Protection
+- **Brute-Force Protection:** Login attempts limited to 10/hour
+- **API Rate Limiting:** 60 requests/hour per IP for device endpoints
+- **Admin Query Limiting:** 30 queries/hour to protect database
+- **Health Check Limiting:** 30 requests/minute for monitoring
+- **Account Lockout:** Automatic 1-hour ban after 8 failed login attempts
+- **Global Limits:** 1000 requests/day, 100/hour per IP as fallback
+
+### Infrastructure Security
+- **SSL/TLS:** Production deployment with Let's Encrypt certificates
+- **Reverse Proxy:** Nginx with security headers (HSTS, CSP, X-Frame-Options)
 - **Input Validation:** All API inputs validated before database storage
-- **Security Headers:** HSTS, CSP, X-Frame-Options configured
+- **Secure Storage:** Environment-based credential management
 
 **→ Security details:** [Security Model](docs/architecture/SECURITY.md)
 

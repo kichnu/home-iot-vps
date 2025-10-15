@@ -9,6 +9,27 @@ Odbiera i przechowuje zdarzenia z systemu podlewania
 
 import os
 import sys
+import hashlib
+import time
+from flask import Flask, request, jsonify, render_template, send_file, Response, redirect, url_for, session, flash
+import sqlite3
+import json
+import logging
+from datetime import datetime, timedelta
+from datetime import timezone as TZ
+import csv
+import io
+import re
+from functools import wraps
+import base64
+import threading
+import secrets
+import hashlib
+import time
+import hmac
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+from queries_config import get_query_sql, get_all_queries_sql, QUICK_QUERIES
 
 # Ładowanie .env file dla developmentu (przed importami Flask)
 try:
@@ -27,32 +48,21 @@ try:
 except ImportError:
     print("📦 python-dotenv not installed, using system environment variables only")
 
-from flask import Flask, request, jsonify, render_template, send_file, Response, redirect, url_for, session, flash
-import sqlite3
-import json
-import logging
-from datetime import datetime, timedelta
-import csv
-import io
-import re
-from functools import wraps
-import base64
-import threading
-import secrets
-import hashlib
-import time
+# Timing Attack Protection
+def secure_compare(a, b):
+    """
+    Constant-time string comparison to prevent timing attacks.
+    Uses HMAC compare_digest for cryptographic comparison.
+    """
+    if a is None or b is None:
+        return False
+    if not isinstance(a, str) or not isinstance(b, str):
+        return False
+    return hmac.compare_digest(a.encode('utf-8'), b.encode('utf-8'))
 
 from queries_config import get_query_sql, get_all_queries_sql, QUICK_QUERIES
 
 # === KONFIGURACJA Z ZMIENNYCH ŚRODOWISKOWYCH ===
-
-# Ścieżki do plików (automatyczna detekcja lub z env)
-# BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-# DATABASE_PATH = os.getenv('WATER_SYSTEM_DATABASE_PATH', 
-#                          os.path.join(BASE_DIR, 'water_events.db'))
-# LOG_PATH = os.getenv('WATER_SYSTEM_LOG_PATH', 
-#                     os.path.join(BASE_DIR, 'app.log'))
-
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATABASE_PATH = os.getenv('WATER_SYSTEM_DATABASE_PATH', 
                          os.path.join(BASE_DIR, 'data/database/water_events.db'))
@@ -121,8 +131,41 @@ app = Flask(__name__)
 app.secret_key = os.getenv('WATER_SYSTEM_SECRET_KEY', secrets.token_hex(32))
 app.permanent_session_lifetime = timedelta(minutes=SESSION_TIMEOUT_MINUTES)
 
-app.config['TEMPLATES_AUTO_RELOAD'] = True
+app.config.update(
+  
+    TEMPLATES_AUTO_RELOAD=True,
+    
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE='Lax',
+    SESSION_COOKIE_NAME='water_session',
+    
+    SESSION_COOKIE_SECURE=True,      
+)
+
+# app.config['TEMPLATES_AUTO_RELOAD'] = True
 app.jinja_env.auto_reload = True
+
+# ============================================
+# RATE LIMITING CONFIGURATION
+# ============================================
+
+def get_real_ip_for_limiter():
+    """
+    Get real client IP for rate limiting (Nginx-aware).
+    Reuses the existing get_real_ip() logic.
+    """
+    return get_real_ip()
+
+# Initialize rate limiter
+limiter = Limiter(
+    app=app,
+    key_func=get_real_ip_for_limiter,
+    default_limits=["1000 per day", "100 per hour"],  # Global defaults
+    storage_uri="memory://",  # In-memory storage (sufficient for single instance)
+    strategy="fixed-window",  # Simple and effective
+    headers_enabled=True,  # Send rate limit info in response headers
+)
+
 
 # Konfiguracja logowania
 log_level = os.getenv('WATER_SYSTEM_LOG_LEVEL', 'INFO').upper()
@@ -136,7 +179,7 @@ logging.basicConfig(
 )
 
 # Log konfiguracji na starcie (bez credentials)
-logging.info("=== WATER SYSTEM CONFIGURATION ===")
+logging.info("=== HOME IOT CONFIGURATION AT STARTUP ===")
 logging.info(f"Base directory: {BASE_DIR}")
 logging.info(f"Database path: {DATABASE_PATH}")
 logging.info(f"Log path: {LOG_PATH}")
@@ -200,6 +243,16 @@ def init_database():
     # Sprawdź czy tabela istnieje i ma stare kolumny
     cursor.execute("PRAGMA table_info(water_events)")
     existing_columns = [row[1] for row in cursor.fetchall()]
+
+    if 'daily_volume_ml' not in existing_columns:
+        try:
+            cursor.execute('''
+                ALTER TABLE water_events 
+                ADD COLUMN daily_volume_ml REAL DEFAULT NULL
+            ''')
+            logging.info("Added daily_volume_ml column to water_events table")
+        except sqlite3.Error as e:
+            logging.warning(f"Could not add daily_volume_ml column: {e}")
     
     if not existing_columns:
         # Nowa instalacja - utwórz tabelę z wszystkimi kolumnami (multi-device ready)
@@ -227,6 +280,8 @@ def init_database():
                 gap2_fail_sum INTEGER DEFAULT NULL,
                 water_fail_sum INTEGER DEFAULT NULL,
                 algorithm_data TEXT DEFAULT NULL,
+                daily_volume_ml INTEGER DEFAULT NULL,
+
                 last_reset_timestamp INTEGER DEFAULT NULL,
                 
                 -- Temperature sensor specific columns  
@@ -314,11 +369,7 @@ def init_database():
     
     conn.commit()
     conn.close()
-
-    # Fix any incorrect device_type values!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    # fix_device_type_migration()
-    # Fix any incorrect device_type values!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    
+ 
     logging.info("Database initialized successfully with multi-device architecture")
 
 def cleanup_expired_sessions():
@@ -455,9 +506,10 @@ def require_auth(f):
             logging.warning(f"Invalid Authorization format from {client_ip}")
             return jsonify({'error': 'Invalid Authorization format'}), 401
         
-        token = auth_header[7:]  # Remove 'Bearer '
+        token = auth_header[7:]
         
-        if token != VALID_TOKEN:
+        # if token != VALID_TOKEN:
+        if not secure_compare(token, VALID_TOKEN):
             logging.warning(f"Invalid token from {client_ip}: {token}")
             return jsonify({'error': 'Invalid token'}), 401
         
@@ -538,10 +590,12 @@ def execute_safe_query(query, params=None):
         return False, str(e)
 
 
+
 def validate_event_data(data):
     """Walidacja danych zdarzenia z obsługą danych algorytmicznych"""
+    # 🆕 'timestamp' jest teraz OPCJONALNY (backwards compatibility)
     required_fields = [
-        'device_id', 'timestamp', 'unix_time', 
+        'device_id', 'unix_time',  # ✅ 'timestamp' usunięty z required
         'event_type', 'volume_ml', 'water_status', 'system_status'
     ]
     
@@ -549,6 +603,10 @@ def validate_event_data(data):
     for field in required_fields:
         if field not in data:
             return False, f"Missing required field: {field}"
+    
+    # Ostrzeżenie o deprecated timestamp (opcjonalne)
+    if 'timestamp' in data:
+        logging.warning(f"⚠️ Deprecated 'timestamp' field received from {data.get('device_id')}")
     
     # Sprawdź typy danych podstawowych
     try:
@@ -562,8 +620,6 @@ def validate_event_data(data):
         return False, f"Invalid device_id: {data['device_id']}"
     
     # Rozszerzona lista typów zdarzeń
-    # valid_event_types = ['AUTO_PUMP', 'MANUAL_NORMAL', 'MANUAL_EXTENDED', 'AUTO_CYCLE_COMPLETE']
-
     valid_event_types = ['AUTO_PUMP', 'MANUAL_NORMAL', 'MANUAL_EXTENDED', 'AUTO_CYCLE_COMPLETE', 'STATISTICS_RESET']
 
     if data['event_type'] not in valid_event_types:
@@ -600,92 +656,89 @@ def validate_event_data(data):
     
     return True, "Valid"
 
-# TEPMPORARY ENDPOINT!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-@app.route('/api/debug-device-types')
-@require_admin_auth
-def debug_device_types():
-    """Debug endpoint to check device_type distribution"""
-    conn = sqlite3.connect(DATABASE_PATH)
-    cursor = conn.cursor()
-    
-    cursor.execute("""
-        SELECT device_type, device_id, COUNT(*) as count
-        FROM water_events 
-        GROUP BY device_type, device_id
-        ORDER BY count DESC
-    """)
-    
-    results = []
-    for row in cursor.fetchall():
-        results.append({
-            'device_type': row[0],
-            'device_id': row[1], 
-            'count': row[2]
-        })
-    
-    conn.close()
-    return jsonify(results)
-# TEPMPORARY ENDPOINT!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
 @app.route('/api/water-events', methods=['POST'])
+@limiter.limit("60 per hour")  
 @require_auth
+
 def receive_water_event():
-    """Endpoint do odbierania zdarzeń z ESP32-C3"""
-    
     client_ip = get_real_ip()
     
     try:
-        # Sprawdź Content-Type
-        if request.content_type != 'application/json':
-            logging.warning(f"Invalid Content-Type from {client_ip}: {request.content_type}")
-            return jsonify({'error': 'Content-Type must be application/json'}), 400
-        
-        # Pobierz dane JSON
         data = request.get_json()
         
-        if not data:
-            logging.warning(f"No JSON data received from {client_ip}")
-            return jsonify({'error': 'No JSON data provided'}), 400
+        # 🆕 DEBUG: Log RAW data
+        logging.info(f"🔍 START LOG RECEIVING FROM HOME IOT")
+        logging.info(f"🔍 RAW data received: {data}")
+        logging.info(f"🔍 Data type: {type(data)}")
         
-        # Walidacja danych
+        # Walidacja
         is_valid, error_msg = validate_event_data(data)
         if not is_valid:
-            logging.warning(f"Invalid data from {client_ip}: {error_msg}")
+            logging.warning(f"Invalid data: {error_msg}")
             return jsonify({'error': error_msg}), 400
-
-        # Determine device type from device_id (temporary fallback)
-        # if data['device_id'] == 'DOLEWKA':
-        #     device_type = 'water_system'
-        # else:
-        #     device_type = data['device_id'].lower()  # fallback
-
+        
+        # 🆕 DEBUG: After validation
+        logging.info(f"✅ Validation passed")
+        
         from device_config import get_device_type
         device_type = get_device_type(data['device_id'])
-
-        # Zapisz do bazy danych z obsługą danych algorytmicznych
-        conn = sqlite3.connect(DATABASE_PATH)
-        cursor = conn.cursor()
         
-        # Przygotuj dane algorytmiczne (opcjonalne)
+        # 🆕 DEBUG: Device type
+        logging.info(f"🔍 Device type: {device_type}")
+        
+        daily_volume_ml = data.get('daily_volume_ml', None)
+        
+        # 🆕 DEBUG: Daily volume
+        logging.info(f"🔍 Daily volume: {daily_volume_ml} (type: {type(daily_volume_ml)})")
+        
+        # Przygotuj algorithm values
         algorithm_values = {}
         algorithm_fields = ['time_gap_1', 'time_gap_2', 'water_trigger_time', 
-                          'pump_duration', 'pump_attempts', 'gap1_fail_sum', 'gap2_fail_sum', 'water_fail_sum', 
+                          'pump_duration', 'pump_attempts', 'gap1_fail_sum', 
+                          'gap2_fail_sum', 'water_fail_sum', 
                           'last_reset_timestamp', 'algorithm_data']
         
-        for field in algorithm_fields:
-            algorithm_values[field] = data.get(field, None)
+        # 🆕 DEBUG: Before loop
+        logging.info(f"🔍 Processing algorithm fields...")
         
+        for field in algorithm_fields:
+            value = data.get(field, None)
+            algorithm_values[field] = value
+            # 🆕 DEBUG: Each field
+            logging.info(f"  - {field}: {value} (type: {type(value)})")
+        
+        # 🆕 DEBUG: Before INSERT
+        logging.info(f"🔍 Preparing INSERT statement...")
+
+        timestamp_value = data.get('timestamp')
+        if not timestamp_value:
+            timestamp_value = datetime.fromtimestamp(
+                data['unix_time'], 
+                TZ.utc
+            ).strftime('%Y-%m-%dT%H:%M:%SZ')
+        
+        conn = sqlite3.connect(DATABASE_PATH)
+        cursor = conn.cursor()
+
+        from datetime import timezone
+        timestamp_value = data.get('timestamp') or datetime.fromtimestamp(
+            data['unix_time'], 
+            timezone.utc
+        ).strftime('%Y-%m-%dT%H:%M:%SZ')
+        
+        # INSERT
         cursor.execute('''
             INSERT INTO water_events 
             (device_id, device_type, timestamp, unix_time, event_type, volume_ml, 
              water_status, system_status, client_ip,
              time_gap_1, time_gap_2, water_trigger_time, pump_duration, pump_attempts,
-             gap1_fail_sum, gap2_fail_sum, water_fail_sum, last_reset_timestamp, algorithm_data)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             gap1_fail_sum, gap2_fail_sum, water_fail_sum, last_reset_timestamp, algorithm_data,
+             daily_volume_ml)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
             data['device_id'],
-            device_type,  # 🆕 NOWA WARTOŚĆ
-            data['timestamp'],
+            device_type,
+            timestamp_value,
             data['unix_time'],
             data['event_type'],
             data['volume_ml'],
@@ -701,37 +754,28 @@ def receive_water_event():
             algorithm_values['gap2_fail_sum'],
             algorithm_values['water_fail_sum'],
             algorithm_values['last_reset_timestamp'],
-            algorithm_values['algorithm_data']
+            algorithm_values['algorithm_data'],
+            daily_volume_ml
         ))
-
+        
         event_id = cursor.lastrowid
         conn.commit()
         conn.close()
         
-        # Loguj pomyślne zdarzenie
-        logging.info(
-            f"Event saved [ID: {event_id}] - Device: {data['device_id']} ({device_type}), "
-            f"Type: {data['event_type']}, Volume: {data['volume_ml']}ml, "
-            f"Status: {data['water_status']}, IP: {client_ip}"
-        )
+        logging.info(f"✅ Event saved [ID: {event_id}]")
         
-        return jsonify({
-            'success': True,
-            'event_id': event_id,
-            'message': 'Event recorded successfully'
-        }), 200
+        return jsonify({'success': True, 'event_id': event_id}), 200
         
-    except json.JSONDecodeError:
-        logging.error(f"JSON decode error from {client_ip}")
-        return jsonify({'error': 'Invalid JSON format'}), 400
-    
-    except sqlite3.Error as e:
-        logging.error(f"Database error: {e}")
-        return jsonify({'error': 'Database error'}), 500
-    
     except Exception as e:
-        logging.error(f"Unexpected error: {e}")
+        import traceback
+        logging.error(f"❌ ERROR: {str(e)}")
+        logging.error(f"Traceback:\n{traceback.format_exc()}")
         return jsonify({'error': 'Internal server error'}), 500
+
+
+
+
+
 
 @app.route('/api/events', methods=['GET'])
 @require_auth
@@ -853,6 +897,7 @@ def login_page():
     return render_template('login.html')
 
 @app.route('/login', methods=['POST'])
+@limiter.limit("10 per hour") 
 def login_submit():
     """Obsługa logowania"""
     client_ip = get_real_ip()
@@ -865,7 +910,8 @@ def login_submit():
     
     password = request.form.get('password', '')
     
-    if password == ADMIN_PASSWORD:
+    # if password == ADMIN_PASSWORD:
+    if secure_compare(password, ADMIN_PASSWORD):  # ✅ ZMIEŃ NA TO
         # Udane logowanie
         reset_failed_attempts(client_ip)
         create_session(client_ip)
@@ -1026,6 +1072,7 @@ def session_info():
     return jsonify(session_data)
 
 @app.route('/api/admin-query', methods=['POST'])
+@limiter.limit("30 per hour")
 @require_admin_auth
 def admin_execute_query():
     """Wykonaj zapytanie SQL z admin panel"""
@@ -1122,9 +1169,8 @@ def get_device_queries(device_type):
         logging.error(f"Error getting device queries: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
-
-
 @app.route('/api/admin-quick-query/<query_type>')
+@limiter.limit("60 per hour")
 @require_admin_auth
 def admin_quick_query(query_type):
     """Wykonaj predefiniowane zapytanie"""
@@ -1150,47 +1196,6 @@ def admin_quick_query(query_type):
         logging.error(f"Error in admin_quick_query: {e}")
         return jsonify({'error': 'Internal server error'}), 500    
     
-
-# @app.route('/api/quick-export/<query_type>/<format>')
-# @require_admin_auth
-# def quick_export_data(query_type, format):
-#     """Eksport konkretnego quick query bezpośrednio"""
-    
-#     query = get_query_sql(query_type)
-#     if not query:
-#         return jsonify({'error': 'Unknown query type'}), 400
-    
-#     success, result = execute_safe_query(query)
-#     if not success:
-#         return jsonify({'error': f'Query error: {result}'}), 400
-    
-#     if format == 'csv':
-#         # Export CSV
-#         output = io.StringIO()
-#         if result:
-#             writer = csv.DictWriter(output, fieldnames=result[0].keys())
-#             writer.writeheader()
-#             writer.writerows(result)
-        
-#         response = Response(
-#             output.getvalue(),
-#             mimetype='text/csv',
-#             headers={'Content-Disposition': f'attachment; filename={query_type}_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv'}
-#         )
-#         return response
-    
-#     elif format == 'json':
-#         # Export JSON
-#         response = Response(
-#             json.dumps(result, indent=2),
-#             mimetype='application/json',
-#             headers={'Content-Disposition': f'attachment; filename={query_type}_{datetime.now().strftime("%Y%m%d_%H%M%S")}.json'}
-#         )
-#         return response
-    
-#     else:
-#         return jsonify({'error': 'Unsupported format. Use csv or json'}), 400
-
 @app.route('/api/quick-export/<query_type>/<format>')
 @app.route('/api/quick-export/<device_type>/<query_type>/<format>')
 @require_admin_auth
@@ -1287,6 +1292,7 @@ def admin_export_data(format):
 # ===============================
 
 @app.route('/health', methods=['GET'])
+@limiter.limit("30 per minute")
 def health_check():
     """Endpoint sprawdzania stanu aplikacji"""
     cleanup_expired_sessions()  # Okazja do cleanup
@@ -1320,16 +1326,6 @@ def run_admin_server():
     """Uruchom HTTP server dla Admin Panel (Nginx obsługuje SSL)"""
     logging.info(f"Starting Admin server on port {ADMIN_PORT} (HTTP - Nginx handles SSL)")
     app.run(host='0.0.0.0', port=ADMIN_PORT, debug=False, threaded=True)
-
-# def run_http_server():
-#     """Uruchom HTTP server dla ESP32 API"""
-#     logging.info(f"Starting HTTP server on port {HTTP_PORT} for ESP32 API")
-#     app.run(host='127.0.0.1', port=HTTP_PORT, debug=False, threaded=True)  # ✅ ZMIANA
-
-# def run_admin_server():
-#     """Uruchom HTTP server dla Admin Panel (Nginx obsługuje SSL)"""
-#     logging.info(f"Starting Admin server on port {ADMIN_PORT} (HTTP - Nginx handles SSL)")
-#     app.run(host='127.0.0.1', port=ADMIN_PORT, debug=False, threaded=True)  # ✅ ZMIANA
 
 if __name__ == '__main__':
     # Inicjalizuj bazę danych przy starcie

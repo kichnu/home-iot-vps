@@ -2,6 +2,13 @@
 Device Type Configuration for Multi-IoT Platform
 Central configuration for all supported device types
 """
+# available columns for queries in queries_config.py:
+#         'columns': [
+#         'id', 'device_id', 'timestamp', 'event_type', 'volume_ml',
+#         'pump_duration', 'pump_attempts', 'time_gap_1', 'time_gap_2',
+#         'water_trigger_time', 'gap1_fail_sum', 'gap2_fail_sum', 'water_fail_sum',
+#         'water_status', 'system_status', 'received_at','daily_volume_ml'
+#     ],
 
 # Device type mappings: device_id -> device_type
 DEVICE_TYPE_MAPPING = {
@@ -16,18 +23,19 @@ DEVICE_TYPE_MAPPING = {
 # Device type definitions
 DEVICE_TYPES = {
     'water_system': {
-        'name': 'Water Management',
-        'description': 'Aquarium water level and pump control systems',
+        'name': 'Auto Top Off',
+        'description': 'Auto Top Off Aquarium Water System',
         'icon': '🐠',
         'color': '#3498db',
         'columns': [
             'id', 'device_id', 'timestamp', 'event_type', 'volume_ml',
             'pump_duration', 'pump_attempts', 'time_gap_1', 'time_gap_2',
             'water_trigger_time', 'gap1_fail_sum', 'gap2_fail_sum', 'water_fail_sum',
-            'water_status', 'system_status', 'received_at'
+            'water_status', 'system_status', 'daily_volume_ml'
         ],
         'event_types': ['AUTO_PUMP', 'MANUAL_NORMAL', 'MANUAL_EXTENDED', 'AUTO_CYCLE_COMPLETE', 'STATISTICS_RESET']
     },
+
     
     'temperature_sensor': {
         'name': 'Temperature Monitoring', 

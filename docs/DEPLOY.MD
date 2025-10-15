@@ -257,6 +257,29 @@ WATER_SYSTEM_MAX_FAILED_ATTEMPTS=8
 
 ---
 
+## Step 3.5: Install Rate Limiting Dependencies
+
+Rate limiting is **essential for production security** to prevent brute-force attacks and API abuse.
+
+### Install Flask-Limiter
+```bash
+# Ensure virtual environment is activated
+source venv/bin/activate
+
+# Install Flask-Limiter
+pip install Flask-Limiter
+
+# Verify installation
+python -c "import flask_limiter; print('✅ Flask-Limiter installed')"
+
+# Update requirements.txt (optional, for future deployments)
+pip freeze | grep Flask-Limiter >> requirements.txt
+
+# Deactivate venv
+deactivate
+
+---
+
 ## Step 4: Systemd Service Configuration
 
 ### Create Systemd Service File
