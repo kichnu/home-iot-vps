@@ -1,0 +1,40 @@
+# TEPMPORARY FUCTION!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+# def fix_device_type_migration():
+#     """Fix device_type values for existing data"""
+#     conn = sqlite3.connect(DATABASE_PATH)
+#     cursor = conn.cursor()
+    
+#     try:
+#         from device_config import get_device_type
+        
+#         # Find records with incorrect device_type
+#         cursor.execute("""
+#             SELECT DISTINCT device_id, device_type 
+#             FROM water_events 
+#             WHERE device_type != ? OR device_type IS NULL
+#         """, ('water_system',))
+        
+#         incorrect_records = cursor.fetchall()
+        
+#         for device_id, current_device_type in incorrect_records:
+#             correct_device_type = get_device_type(device_id)
+            
+#             if current_device_type != correct_device_type:
+#                 cursor.execute("""
+#                     UPDATE water_events 
+#                     SET device_type = ? 
+#                     WHERE device_id = ? AND (device_type = ? OR device_type IS NULL)
+#                 """, (correct_device_type, device_id, current_device_type))
+                
+#                 updated = cursor.rowcount
+#                 logging.info(f"Fixed {updated} records: {device_id} '{current_device_type}' → '{correct_device_type}'")
+        
+#         conn.commit()
+#         logging.info("Device type migration fix completed")
+        
+#     except Exception as e:
+#         logging.error(f"Migration fix failed: {e}")
+#         conn.rollback()
+#     finally:
+#         conn.close()
