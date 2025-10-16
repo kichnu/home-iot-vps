@@ -14,6 +14,7 @@ import time
 from flask import Flask, request, jsonify, render_template, send_file, Response, redirect, url_for, session, flash
 import sqlite3
 import json
+from database import get_db_connection, execute_query, init_database_path
 import logging
 from datetime import datetime, timedelta
 from datetime import timezone as TZ
@@ -191,13 +192,15 @@ logging.info(f"Valid device IDs: {VALID_DEVICE_IDS}")
 logging.info(f"Log level: {log_level}")
 logging.info("Environment variables loaded successfully ✅")
 
+init_database_path(DATABASE_PATH)
+
 def init_database():
     """Inicjalizacja bazy danych SQLite z obsługą multi-device architecture"""
     os.makedirs(os.path.dirname(DATABASE_PATH), exist_ok=True)
     
     conn = sqlite3.connect(DATABASE_PATH)
     cursor = conn.cursor()
-    
+
     # ✅ DODAJ TO TUTAJ (na samym początku, przed resztą):
     # ==============================================================
     # TABELE SESJI - Database-backed session management
@@ -356,8 +359,6 @@ def init_database():
     cursor.execute('CREATE INDEX IF NOT EXISTS idx_event_type ON water_events(event_type)')
     cursor.execute('CREATE INDEX IF NOT EXISTS idx_received_at ON water_events(received_at)')
     
-    conn.commit()
-    conn.close()
  
     logging.info("Database initialized successfully with multi-device architecture")
 
@@ -384,178 +385,282 @@ def init_database():
 #         del locked_accounts[ip]
 #         logging.info(f"Account lockout expired for IP: {ip}")
 
-def cleanup_expired_sessions():
-    try:
-        conn = sqlite3.connect(DATABASE_PATH)
-        cursor = conn.cursor()
+# def cleanup_expired_sessions():
+#     try:
+#         conn = sqlite3.connect(DATABASE_PATH)
+#         cursor = conn.cursor()
         
-        # Timeout w sekundach
-        session_timeout = SESSION_TIMEOUT_MINUTES * 60
-        lockout_duration = LOCKOUT_DURATION_HOURS * 3600
-        current_time = int(time.time())
+#         # Timeout w sekundach
+#         session_timeout = SESSION_TIMEOUT_MINUTES * 60
+#         lockout_duration = LOCKOUT_DURATION_HOURS * 3600
+#         current_time = int(time.time())
         
-        # Usuń wygasłe sesje
-        cursor.execute('''
-            DELETE FROM admin_sessions 
-            WHERE last_activity < ?
-        ''', (current_time - session_timeout,))
-        deleted_sessions = cursor.rowcount
+#         # Usuń wygasłe sesje
+#         cursor.execute('''
+#             DELETE FROM admin_sessions 
+#             WHERE last_activity < ?
+#         ''', (current_time - session_timeout,))
+#         deleted_sessions = cursor.rowcount
         
-        # Usuń stare failed attempts (po 1h)
-        cursor.execute('''
-            DELETE FROM failed_login_attempts 
-            WHERE last_attempt < ? AND locked_until IS NULL
-        ''', (current_time - 3600,))
+#         # Usuń stare failed attempts (po 1h)
+#         cursor.execute('''
+#             DELETE FROM failed_login_attempts 
+#             WHERE last_attempt < ? AND locked_until IS NULL
+#         ''', (current_time - 3600,))
         
-        # Odblokuj wygasłe lockouty
-        cursor.execute('''
-            UPDATE failed_login_attempts 
-            SET locked_until = NULL, attempt_count = 0
-            WHERE locked_until IS NOT NULL AND locked_until < ?
-        ''', (current_time,))
-        unlocked = cursor.rowcount
+#         # Odblokuj wygasłe lockouty
+#         cursor.execute('''
+#             UPDATE failed_login_attempts 
+#             SET locked_until = NULL, attempt_count = 0
+#             WHERE locked_until IS NOT NULL AND locked_until < ?
+#         ''', (current_time,))
+#         unlocked = cursor.rowcount
         
-        conn.commit()
-        conn.close()
+#         conn.commit()
+#         conn.close()
         
-        if deleted_sessions > 0:
-            logging.debug(f"Cleaned up {deleted_sessions} expired sessions")
-        if unlocked > 0:
-            logging.info(f"Unlocked {unlocked} expired account lockouts")
+#         if deleted_sessions > 0:
+#             logging.debug(f"Cleaned up {deleted_sessions} expired sessions")
+#         if unlocked > 0:
+#             logging.info(f"Unlocked {unlocked} expired account lockouts")
             
+#     except Exception as e:
+#         logging.error(f"Session cleanup error: {e}")
+
+def cleanup_expired_sessions():
+    """Czyści wygasłe sesje i lockout z bazy danych"""
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            
+            # Timeout w sekundach
+            session_timeout = SESSION_TIMEOUT_MINUTES * 60
+            lockout_duration = LOCKOUT_DURATION_HOURS * 3600
+            current_time = int(time.time())
+            
+            # Usuń wygasłe sesje
+            cursor.execute('''
+                DELETE FROM admin_sessions 
+                WHERE last_activity < ?
+            ''', (current_time - session_timeout,))
+            deleted_sessions = cursor.rowcount
+            
+            # Usuń stare failed attempts (po 1h)
+            cursor.execute('''
+                DELETE FROM failed_login_attempts 
+                WHERE last_attempt < ? AND locked_until IS NULL
+            ''', (current_time - 3600,))
+            
+            # Odblokuj wygasłe lockouty
+            cursor.execute('''
+                UPDATE failed_login_attempts 
+                SET locked_until = NULL, attempt_count = 0
+                WHERE locked_until IS NOT NULL AND locked_until < ?
+            ''', (current_time,))
+            unlocked = cursor.rowcount
+            
+            # Context manager auto-commits
+            
+            if deleted_sessions > 0:
+                logging.debug(f"Cleaned up {deleted_sessions} expired sessions")
+            if unlocked > 0:
+                logging.info(f"Unlocked {unlocked} expired account lockouts")
+                
     except Exception as e:
         logging.error(f"Session cleanup error: {e}")
 
-# def is_account_locked(client_ip):
-#     """Sprawdź czy konto jest zablokowane"""
-#     cleanup_expired_sessions()
-#     return client_ip in locked_accounts
-
 def is_account_locked(client_ip):
+    """Sprawdź czy konto jest zablokowane (database-backed)"""
     cleanup_expired_sessions()
     
     try:
-        conn = sqlite3.connect(DATABASE_PATH)
-        cursor = conn.cursor()
-        
-        current_time = int(time.time())
-        
-        cursor.execute('''
-            SELECT locked_until 
-            FROM failed_login_attempts 
-            WHERE client_ip = ? AND locked_until IS NOT NULL
-        ''', (client_ip,))
-        
-        result = cursor.fetchone()
-        conn.close()
-        
-        if result and result[0]:
-            # Sprawdź czy lockout jeszcze trwa
-            if result[0] > current_time:
-                return True
-            else:
-                # Lockout wygasł - wyczyść w cleanup
-                return False
-        
-        return False
-        
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            current_time = int(time.time())
+            
+            cursor.execute('''
+                SELECT locked_until 
+                FROM failed_login_attempts 
+                WHERE client_ip = ? AND locked_until IS NOT NULL
+            ''', (client_ip,))
+            
+            result = cursor.fetchone()
+            
+            if result and result[0]:
+                if result[0] > current_time:
+                    return True
+                else:
+                    return False
+            
+            return False
+            
     except Exception as e:
         logging.error(f"Error checking account lock: {e}")
-        return False  # W razie błędu nie blokuj
+        return False
+
+
+# def is_account_locked(client_ip):
+#     cleanup_expired_sessions()
+    
+#     try:
+#         conn = sqlite3.connect(DATABASE_PATH)
+#         cursor = conn.cursor()
+        
+#         current_time = int(time.time())
+        
+#         cursor.execute('''
+#             SELECT locked_until 
+#             FROM failed_login_attempts 
+#             WHERE client_ip = ? AND locked_until IS NOT NULL
+#         ''', (client_ip,))
+        
+#         result = cursor.fetchone()
+#         conn.close()
+        
+#         if result and result[0]:
+#             # Sprawdź czy lockout jeszcze trwa
+#             if result[0] > current_time:
+#                 return True
+#             else:
+#                 # Lockout wygasł - wyczyść w cleanup
+#                 return False
+        
+#         return False
+        
+#     except Exception as e:
+#         logging.error(f"Error checking account lock: {e}")
+#         return False  # W razie błędu nie blokuj
 
 # def record_failed_attempt(client_ip):
-#     """Zapisz nieudaną próbę logowania"""
-#     now = time.time()
-    
-#     if client_ip not in failed_attempts:
-#         failed_attempts[client_ip] = {'count': 0, 'last_attempt': now}
-    
-#     failed_attempts[client_ip]['count'] += 1
-#     failed_attempts[client_ip]['last_attempt'] = now
-    
-#     if failed_attempts[client_ip]['count'] >= MAX_FAILED_ATTEMPTS:
-#         locked_accounts[client_ip] = now
-#         logging.warning(f"Account locked for IP {client_ip} after {MAX_FAILED_ATTEMPTS} failed attempts")
-#         return True
-    
-#     return False
+#     """Zapisz nieudaną próbę logowania (database-backed)"""
+#     try:
+#         conn = sqlite3.connect(DATABASE_PATH)
+#         cursor = conn.cursor()
+        
+#         current_time = int(time.time())
+#         lockout_until = current_time + (LOCKOUT_DURATION_HOURS * 3600)
+        
+#         # Sprawdź obecny stan
+#         cursor.execute('''
+#             SELECT attempt_count FROM failed_login_attempts 
+#             WHERE client_ip = ?
+#         ''', (client_ip,))
+        
+#         result = cursor.fetchone()
+        
+#         if result:
+#             # Zwiększ licznik
+#             new_count = result[0] + 1
+            
+#             if new_count >= MAX_FAILED_ATTEMPTS:
+#                 # ZABLOKUJ KONTO
+#                 cursor.execute('''
+#                     UPDATE failed_login_attempts 
+#                     SET attempt_count = ?, last_attempt = ?, locked_until = ?
+#                     WHERE client_ip = ?
+#                 ''', (new_count, current_time, lockout_until, client_ip))
+                
+#                 conn.commit()
+#                 conn.close()
+                
+#                 logging.warning(f"🔒 Account locked for IP {client_ip} after {MAX_FAILED_ATTEMPTS} failed attempts")
+#                 return True
+#             else:
+#                 # Zwiększ licznik bez blokady
+#                 cursor.execute('''
+#                     UPDATE failed_login_attempts 
+#                     SET attempt_count = ?, last_attempt = ?
+#                     WHERE client_ip = ?
+#                 ''', (new_count, current_time, client_ip))
+#         else:
+#             # Pierwsza nieudana próba
+#             cursor.execute('''
+#                 INSERT INTO failed_login_attempts 
+#                 (client_ip, attempt_count, last_attempt)
+#                 VALUES (?, 1, ?)
+#             ''', (client_ip, current_time))
+        
+#         conn.commit()
+#         conn.close()
+#         return False
+        
+#     except Exception as e:
+#         logging.error(f"Error recording failed attempt: {e}")
+#         return False
 
 def record_failed_attempt(client_ip):
     """Zapisz nieudaną próbę logowania (database-backed)"""
     try:
-        conn = sqlite3.connect(DATABASE_PATH)
-        cursor = conn.cursor()
-        
-        current_time = int(time.time())
-        lockout_until = current_time + (LOCKOUT_DURATION_HOURS * 3600)
-        
-        # Sprawdź obecny stan
-        cursor.execute('''
-            SELECT attempt_count FROM failed_login_attempts 
-            WHERE client_ip = ?
-        ''', (client_ip,))
-        
-        result = cursor.fetchone()
-        
-        if result:
-            # Zwiększ licznik
-            new_count = result[0] + 1
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            current_time = int(time.time())
+            lockout_until = current_time + (LOCKOUT_DURATION_HOURS * 3600)
             
-            if new_count >= MAX_FAILED_ATTEMPTS:
-                # ZABLOKUJ KONTO
-                cursor.execute('''
-                    UPDATE failed_login_attempts 
-                    SET attempt_count = ?, last_attempt = ?, locked_until = ?
-                    WHERE client_ip = ?
-                ''', (new_count, current_time, lockout_until, client_ip))
-                
-                conn.commit()
-                conn.close()
-                
-                logging.warning(f"🔒 Account locked for IP {client_ip} after {MAX_FAILED_ATTEMPTS} failed attempts")
-                return True
-            else:
-                # Zwiększ licznik bez blokady
-                cursor.execute('''
-                    UPDATE failed_login_attempts 
-                    SET attempt_count = ?, last_attempt = ?
-                    WHERE client_ip = ?
-                ''', (new_count, current_time, client_ip))
-        else:
-            # Pierwsza nieudana próba
             cursor.execute('''
-                INSERT INTO failed_login_attempts 
-                (client_ip, attempt_count, last_attempt)
-                VALUES (?, 1, ?)
-            ''', (client_ip, current_time))
-        
-        conn.commit()
-        conn.close()
-        return False
-        
+                SELECT attempt_count FROM failed_login_attempts 
+                WHERE client_ip = ?
+            ''', (client_ip,))
+            
+            result = cursor.fetchone()
+            
+            if result:
+                new_count = result[0] + 1
+                
+                if new_count >= MAX_FAILED_ATTEMPTS:
+                    cursor.execute('''
+                        UPDATE failed_login_attempts 
+                        SET attempt_count = ?, last_attempt = ?, locked_until = ?
+                        WHERE client_ip = ?
+                    ''', (new_count, current_time, lockout_until, client_ip))
+                    
+                    logging.warning(f"🔒 Account locked for IP {client_ip} after {MAX_FAILED_ATTEMPTS} failed attempts")
+                    return True
+                else:
+                    cursor.execute('''
+                        UPDATE failed_login_attempts 
+                        SET attempt_count = ?, last_attempt = ?
+                        WHERE client_ip = ?
+                    ''', (new_count, current_time, client_ip))
+            else:
+                cursor.execute('''
+                    INSERT INTO failed_login_attempts 
+                    (client_ip, attempt_count, last_attempt)
+                    VALUES (?, 1, ?)
+                ''', (client_ip, current_time))
+            
+            return False
+            
     except Exception as e:
         logging.error(f"Error recording failed attempt: {e}")
         return False
 
 # def reset_failed_attempts(client_ip):
 #     """Resetuj licznik nieudanych prób po udanym logowaniu"""
-#     if client_ip in failed_attempts:
-#         del failed_attempts[client_ip]
+#     try:
+#         conn = sqlite3.connect(DATABASE_PATH)
+#         cursor = conn.cursor()
+        
+#         cursor.execute('''
+#             DELETE FROM failed_login_attempts 
+#             WHERE client_ip = ?
+#         ''', (client_ip,))
+        
+#         conn.commit()
+#         conn.close()
+        
+#     except Exception as e:
+#         logging.error(f"Error resetting failed attempts: {e}")
 
 def reset_failed_attempts(client_ip):
     """Resetuj licznik nieudanych prób po udanym logowaniu"""
     try:
-        conn = sqlite3.connect(DATABASE_PATH)
-        cursor = conn.cursor()
-        
-        cursor.execute('''
-            DELETE FROM failed_login_attempts 
-            WHERE client_ip = ?
-        ''', (client_ip,))
-        
-        conn.commit()
-        conn.close()
-        
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                DELETE FROM failed_login_attempts 
+                WHERE client_ip = ?
+            ''', (client_ip,))
+            
     except Exception as e:
         logging.error(f"Error resetting failed attempts: {e}")
 
@@ -575,22 +680,36 @@ def get_real_ip():
     return request.remote_addr
 
 # def create_session(client_ip):
-#     """Utwórz nową sesję"""
-#     session_id = secrets.token_urlsafe(32)
-#     active_sessions[session_id] = {
-#         'client_ip': client_ip,
-#         'created_at': time.time(),
-#         'last_activity': time.time()
-#     }
-    
-#     # Set Flask session
-#     session.permanent = True
-#     session['session_id'] = session_id
-#     session['authenticated'] = True
-#     session['login_time'] = datetime.now().isoformat()
-    
-#     logging.info(f"New session created for IP: {client_ip}")
-#     return session_id
+#     """Utwórz nową sesję w bazie danych"""
+#     try:
+#         session_id = secrets.token_urlsafe(32)
+#         current_time = int(time.time())
+#         user_agent = request.headers.get('User-Agent', 'Unknown')[:200]
+        
+#         conn = sqlite3.connect(DATABASE_PATH)
+#         cursor = conn.cursor()
+        
+#         cursor.execute('''
+#             INSERT INTO admin_sessions 
+#             (session_id, client_ip, created_at, last_activity, user_agent)
+#             VALUES (?, ?, ?, ?, ?)
+#         ''', (session_id, client_ip, current_time, current_time, user_agent))
+        
+#         conn.commit()
+#         conn.close()
+        
+#         # Set Flask session
+#         session.permanent = True
+#         session['session_id'] = session_id
+#         session['authenticated'] = True
+#         session['login_time'] = datetime.now().isoformat()
+        
+#         logging.info(f"✅ New session created for IP: {client_ip}")
+#         return session_id
+        
+#     except Exception as e:
+#         logging.error(f"Error creating session: {e}")
+#         return None
 
 def create_session(client_ip):
     """Utwórz nową sesję w bazie danych"""
@@ -599,17 +718,13 @@ def create_session(client_ip):
         current_time = int(time.time())
         user_agent = request.headers.get('User-Agent', 'Unknown')[:200]
         
-        conn = sqlite3.connect(DATABASE_PATH)
-        cursor = conn.cursor()
-        
-        cursor.execute('''
-            INSERT INTO admin_sessions 
-            (session_id, client_ip, created_at, last_activity, user_agent)
-            VALUES (?, ?, ?, ?, ?)
-        ''', (session_id, client_ip, current_time, current_time, user_agent))
-        
-        conn.commit()
-        conn.close()
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                INSERT INTO admin_sessions 
+                (session_id, client_ip, created_at, last_activity, user_agent)
+                VALUES (?, ?, ?, ?, ?)
+            ''', (session_id, client_ip, current_time, current_time, user_agent))
         
         # Set Flask session
         session.permanent = True
@@ -625,7 +740,7 @@ def create_session(client_ip):
         return None
 
 # def validate_session():
-#     """Waliduj obecną sesję"""
+#     """Waliduj obecną sesję (database-backed)"""
 #     cleanup_expired_sessions()
     
 #     if 'session_id' not in session or 'authenticated' not in session:
@@ -634,21 +749,58 @@ def create_session(client_ip):
 #     session_id = session['session_id']
 #     client_ip = get_real_ip()
     
-#     if session_id not in active_sessions:
-#         return False
-    
-#     session_data = active_sessions[session_id]
-    
-#     # Sprawdź IP (opcjonalne - może być problemem z proxy)
-#     if session_data['client_ip'] != client_ip:
-#         logging.warning(f"Session IP mismatch: {session_data['client_ip']} vs {client_ip}")
-#         # W trybie Nginx nie blokujemy na IP mismatch (proxy może zmieniać IP)
-#         if not ENABLE_NGINX_MODE:
+#     try:
+#         conn = sqlite3.connect(DATABASE_PATH)
+#         cursor = conn.cursor()
+        
+#         current_time = int(time.time())
+#         session_timeout = SESSION_TIMEOUT_MINUTES * 60
+        
+#         # Sprawdź sesję w bazie
+#         cursor.execute('''
+#             SELECT client_ip, last_activity 
+#             FROM admin_sessions 
+#             WHERE session_id = ?
+#         ''', (session_id,))
+        
+#         result = cursor.fetchone()
+        
+#         if not result:
+#             conn.close()
 #             return False
-    
-#     # Update last activity
-#     session_data['last_activity'] = time.time()
-#     return True
+        
+#         stored_ip, last_activity = result
+        
+#         # Sprawdź timeout
+#         if current_time - last_activity > session_timeout:
+#             # Sesja wygasła - usuń
+#             cursor.execute('DELETE FROM admin_sessions WHERE session_id = ?', (session_id,))
+#             conn.commit()
+#             conn.close()
+#             logging.info(f"⏱️ Session expired for {client_ip}")
+#             return False
+        
+#         # Sprawdź IP (opcjonalne w Nginx mode)
+#         if stored_ip != client_ip and not ENABLE_NGINX_MODE:
+#             logging.warning(f"⚠️ Session IP mismatch: {stored_ip} vs {client_ip}")
+#             conn.close()
+#             return False
+        
+#         # Update last activity
+#         cursor.execute('''
+#             UPDATE admin_sessions 
+#             SET last_activity = ? 
+#             WHERE session_id = ?
+#         ''', (current_time, session_id))
+        
+#         conn.commit()
+#         conn.close()
+        
+#         return True
+        
+#     except Exception as e:
+#         logging.error(f"Session validation error: {e}")
+#         return False
 
 def validate_session():
     """Waliduj obecną sesję (database-backed)"""
@@ -661,64 +813,69 @@ def validate_session():
     client_ip = get_real_ip()
     
     try:
-        conn = sqlite3.connect(DATABASE_PATH)
-        cursor = conn.cursor()
-        
-        current_time = int(time.time())
-        session_timeout = SESSION_TIMEOUT_MINUTES * 60
-        
-        # Sprawdź sesję w bazie
-        cursor.execute('''
-            SELECT client_ip, last_activity 
-            FROM admin_sessions 
-            WHERE session_id = ?
-        ''', (session_id,))
-        
-        result = cursor.fetchone()
-        
-        if not result:
-            conn.close()
-            return False
-        
-        stored_ip, last_activity = result
-        
-        # Sprawdź timeout
-        if current_time - last_activity > session_timeout:
-            # Sesja wygasła - usuń
-            cursor.execute('DELETE FROM admin_sessions WHERE session_id = ?', (session_id,))
-            conn.commit()
-            conn.close()
-            logging.info(f"⏱️ Session expired for {client_ip}")
-            return False
-        
-        # Sprawdź IP (opcjonalne w Nginx mode)
-        if stored_ip != client_ip and not ENABLE_NGINX_MODE:
-            logging.warning(f"⚠️ Session IP mismatch: {stored_ip} vs {client_ip}")
-            conn.close()
-            return False
-        
-        # Update last activity
-        cursor.execute('''
-            UPDATE admin_sessions 
-            SET last_activity = ? 
-            WHERE session_id = ?
-        ''', (current_time, session_id))
-        
-        conn.commit()
-        conn.close()
-        
-        return True
-        
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            current_time = int(time.time())
+            session_timeout = SESSION_TIMEOUT_MINUTES * 60
+            
+            cursor.execute('''
+                SELECT client_ip, last_activity 
+                FROM admin_sessions 
+                WHERE session_id = ?
+            ''', (session_id,))
+            
+            result = cursor.fetchone()
+            
+            if not result:
+                return False
+            
+            stored_ip, last_activity = result
+            
+            # Sprawdź timeout
+            if current_time - last_activity > session_timeout:
+                cursor.execute('DELETE FROM admin_sessions WHERE session_id = ?', (session_id,))
+                logging.info(f"⏱️ Session expired for {client_ip}")
+                return False
+            
+            # Sprawdź IP (opcjonalne w Nginx mode)
+            if stored_ip != client_ip and not ENABLE_NGINX_MODE:
+                logging.warning(f"⚠️ Session IP mismatch: {stored_ip} vs {client_ip}")
+                return False
+            
+            # Update last activity
+            cursor.execute('''
+                UPDATE admin_sessions 
+                SET last_activity = ? 
+                WHERE session_id = ?
+            ''', (current_time, session_id))
+            
+            return True
+            
     except Exception as e:
         logging.error(f"Session validation error: {e}")
         return False
 
 # def destroy_session():
-#     """Zniszcz obecną sesję"""
+#     """Zniszcz obecną sesję (database-backed)"""
 #     if 'session_id' in session:
 #         session_id = session['session_id']
-#         if session_id in active_sessions:
-#             del active_sessions[session_id]
+        
+#         try:
+#             conn = sqlite3.connect(DATABASE_PATH)
+#             cursor = conn.cursor()
+            
+#             cursor.execute('''
+#                 DELETE FROM admin_sessions 
+#                 WHERE session_id = ?
+#             ''', (session_id,))
+            
+#             conn.commit()
+#             conn.close()
+            
+#             logging.info(f"🗑️ Session destroyed: {session_id[:8]}...")
+            
+#         except Exception as e:
+#             logging.error(f"Error destroying session: {e}")
     
 #     session.clear()
 
@@ -728,16 +885,12 @@ def destroy_session():
         session_id = session['session_id']
         
         try:
-            conn = sqlite3.connect(DATABASE_PATH)
-            cursor = conn.cursor()
-            
-            cursor.execute('''
-                DELETE FROM admin_sessions 
-                WHERE session_id = ?
-            ''', (session_id,))
-            
-            conn.commit()
-            conn.close()
+            with get_db_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute('''
+                    DELETE FROM admin_sessions 
+                    WHERE session_id = ?
+                ''', (session_id,))
             
             logging.info(f"🗑️ Session destroyed: {session_id[:8]}...")
             
@@ -821,26 +974,24 @@ def validate_sql_query(query):
 def execute_safe_query(query, params=None):
     """Bezpiecznie wykonaj zapytanie SQL"""
     try:
-        conn = sqlite3.connect(DATABASE_PATH)
-        conn.row_factory = sqlite3.Row
-        cursor = conn.cursor()
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
         
-        # Ustaw timeout
-        conn.execute('PRAGMA query_timeout = 10000')  # 10 sekund
-        
-        if params:
-            cursor.execute(query, params)
-        else:
-            cursor.execute(query)
-        
-        results = cursor.fetchall()
-        
-        # Limit wyników
-        if len(results) > 1000:
-            results = results[:1000]
-        
-        conn.close()
-        return True, [dict(row) for row in results]
+            # Ustaw timeout
+            conn.execute('PRAGMA query_timeout = 10000')  # 10 sekund
+
+            if params:
+                cursor.execute(query, params)
+            else:
+                cursor.execute(query)
+
+            results = cursor.fetchall()
+
+            # Limit wyników
+            if len(results) > 1000:
+                results = results[:1000]
+
+            return True, [dict(row) for row in results]
         
     except Exception as e:
         return False, str(e)
@@ -972,56 +1123,58 @@ def receive_water_event():
                 data['unix_time'], 
                 TZ.utc
             ).strftime('%Y-%m-%dT%H:%M:%SZ')
-        
-        conn = sqlite3.connect(DATABASE_PATH)
-        cursor = conn.cursor()
 
-
-
-
-        
-
-        from datetime import timezone
-        timestamp_value = data.get('timestamp') or datetime.fromtimestamp(
-            data['unix_time'], 
-            timezone.utc
-        ).strftime('%Y-%m-%dT%H:%M:%SZ')
-        
-        # INSERT
-        cursor.execute('''
-            INSERT INTO water_events 
-            (device_id, device_type, timestamp, unix_time, event_type, volume_ml, 
-             water_status, system_status, client_ip,
-             time_gap_1, time_gap_2, water_trigger_time, pump_duration, pump_attempts,
-             gap1_fail_sum, gap2_fail_sum, water_fail_sum, last_reset_timestamp, algorithm_data,
-             daily_volume_ml)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (
-            data['device_id'],
-            device_type,
-            timestamp_value,
-            data['unix_time'],
-            data['event_type'],
-            data['volume_ml'],
-            data['water_status'],
-            data['system_status'],
-            client_ip,
-            algorithm_values['time_gap_1'],
-            algorithm_values['time_gap_2'],
-            algorithm_values['water_trigger_time'],
-            algorithm_values['pump_duration'],
-            algorithm_values['pump_attempts'],
-            algorithm_values['gap1_fail_sum'],
-            algorithm_values['gap2_fail_sum'],
-            algorithm_values['water_fail_sum'],
-            algorithm_values['last_reset_timestamp'],
-            algorithm_values['algorithm_data'],
-            daily_volume_ml
-        ))
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            
+            from datetime import timezone
+            timestamp_value = data.get('timestamp') or datetime.fromtimestamp(
+                data['unix_time'], 
+                timezone.utc
+            ).strftime('%Y-%m-%dT%H:%M:%SZ')
+            
+            # INSERT
+            cursor.execute('''
+                INSERT INTO water_events 
+                (device_id, device_type, timestamp, unix_time, event_type, volume_ml, 
+                 water_status, system_status, client_ip,
+                 time_gap_1, time_gap_2, water_trigger_time, pump_duration, pump_attempts,
+                 gap1_fail_sum, gap2_fail_sum, water_fail_sum, last_reset_timestamp, algorithm_data,
+                 daily_volume_ml)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                data['device_id'],
+                device_type,
+                timestamp_value,
+                data['unix_time'],
+                data['event_type'],
+                data['volume_ml'],
+                data['water_status'],
+                data['system_status'],
+                client_ip,
+                algorithm_values['time_gap_1'],
+                algorithm_values['time_gap_2'],
+                algorithm_values['water_trigger_time'],
+                algorithm_values['pump_duration'],
+                algorithm_values['pump_attempts'],
+                algorithm_values['gap1_fail_sum'],
+                algorithm_values['gap2_fail_sum'],
+                algorithm_values['water_fail_sum'],
+                algorithm_values['last_reset_timestamp'],
+                algorithm_values['algorithm_data'],
+                daily_volume_ml
+            ))
+            
+            event_id = cursor.lastrowid
         
         event_id = cursor.lastrowid
         conn.commit()
         conn.close()
+
+
+
+
+
         
         logging.info(f"✅ Event saved [ID: {event_id}]")
         
@@ -1052,33 +1205,30 @@ def get_events():
         # Ograniczenia
         limit = min(limit, 1000)  # Max 1000 rekordów
         
-        conn = sqlite3.connect(DATABASE_PATH)
-        conn.row_factory = sqlite3.Row  # Zwraca słowniki zamiast tupli
-        cursor = conn.cursor()
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
         
-        # Buduj zapytanie SQL
-        query = "SELECT * FROM water_events WHERE 1=1"
-        params = []
-        
-        if device_id:
-            query += " AND device_id = ?"
-            params.append(device_id)
-        
-        if event_type:
-            query += " AND event_type = ?"
-            params.append(event_type)
-        
-        query += " ORDER BY received_at DESC LIMIT ?"
-        params.append(limit)
-        
-        cursor.execute(query, params)
-        rows = cursor.fetchall()
-        
-        # Konwertuj na listę słowników
-        events = [dict(row) for row in rows]
-        
-        conn.close()
-        
+            # Buduj zapytanie SQL
+            query = "SELECT * FROM water_events WHERE 1=1"
+            params = []
+
+            if device_id:
+                query += " AND device_id = ?"
+                params.append(device_id)
+
+            if event_type:
+                query += " AND event_type = ?"
+                params.append(event_type)
+
+            query += " ORDER BY received_at DESC LIMIT ?"
+            params.append(limit)
+
+            cursor.execute(query, params)
+            rows = cursor.fetchall()
+
+            # Konwertuj na listę słowników
+            events = [dict(row) for row in rows]
+
         return jsonify({
             'success': True,
             'count': len(events),
@@ -1095,38 +1245,36 @@ def get_stats():
     """Endpoint do pobierania statystyk"""
     
     try:
-        conn = sqlite3.connect(DATABASE_PATH)
-        cursor = conn.cursor()
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
         
-        # Podstawowe statystyki
-        cursor.execute("SELECT COUNT(*) FROM water_events")
-        total_events = cursor.fetchone()[0]
-        
-        cursor.execute("SELECT COUNT(DISTINCT device_id) FROM water_events")
-        unique_devices = cursor.fetchone()[0]
-        
-        cursor.execute("""
-            SELECT event_type, COUNT(*) as count 
-            FROM water_events 
-            GROUP BY event_type
-        """)
-        event_types = dict(cursor.fetchall())
-        
-        cursor.execute("""
-            SELECT SUM(volume_ml) as total_volume 
-            FROM water_events
-        """)
-        total_volume = cursor.fetchone()[0] or 0
-        
-        cursor.execute("""
-            SELECT timestamp, volume_ml 
-            FROM water_events 
-            ORDER BY received_at DESC 
-            LIMIT 1
-        """)
-        last_event = cursor.fetchone()
-        
-        conn.close()
+            # Podstawowe statystyki
+            cursor.execute("SELECT COUNT(*) FROM water_events")
+            total_events = cursor.fetchone()[0]
+
+            cursor.execute("SELECT COUNT(DISTINCT device_id) FROM water_events")
+            unique_devices = cursor.fetchone()[0]
+
+            cursor.execute("""
+                SELECT event_type, COUNT(*) as count 
+                FROM water_events 
+                GROUP BY event_type
+            """)
+            event_types = dict(cursor.fetchall())
+
+            cursor.execute("""
+                SELECT SUM(volume_ml) as total_volume 
+                FROM water_events
+            """)
+            total_volume = cursor.fetchone()[0] or 0
+
+            cursor.execute("""
+                SELECT timestamp, volume_ml 
+                FROM water_events 
+                ORDER BY received_at DESC 
+                LIMIT 1
+            """)
+            last_event = cursor.fetchone()
         
         stats = {
             'total_events': total_events,
@@ -1214,73 +1362,71 @@ def device_dashboard():
     client_ip = get_real_ip()
     
     try:
-        conn = sqlite3.connect(DATABASE_PATH)
-        cursor = conn.cursor()
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
         
-        # Import valid device types
-        from device_config import DEVICE_TYPES
-        valid_device_types = list(DEVICE_TYPES.keys())
-        
-        # Placeholders for SQL IN clause
-        placeholders = ','.join(['?' for _ in valid_device_types])
-        
-        # Auto-discover available device types from database (only valid ones)
-        cursor.execute(f"""
-            SELECT 
-                device_type,
-                COUNT(*) as event_count,
-                COUNT(DISTINCT device_id) as device_count,
-                MAX(received_at) as last_activity,
-                MIN(received_at) as first_activity
-            FROM water_events 
-            WHERE device_type IN ({placeholders}) 
-            GROUP BY device_type 
-            ORDER BY event_count DESC
-        """, valid_device_types)
-        
-        discovered_types = []
-        for row in cursor.fetchall():
-            device_type, event_count, device_count, last_activity, first_activity = row
+            # Import valid device types
+            from device_config import DEVICE_TYPES
+            valid_device_types = list(DEVICE_TYPES.keys())
             
-            # Get device type configuration
-            from device_config import get_device_config
-            config = get_device_config(device_type)
+            # Placeholders for SQL IN clause
+            placeholders = ','.join(['?' for _ in valid_device_types])
             
-            discovered_types.append({
-                'type': device_type,
-                'name': config.get('name', device_type.title()),
-                'icon': config.get('icon', '📱'),
-                'color': config.get('color', '#95a5a6'),
-                'description': config.get('description', f'{device_type} devices'),
-                'event_count': event_count,
-                'device_count': device_count,
-                'last_activity': last_activity,
-                'first_activity': first_activity,
-                'status': 'active' if last_activity else 'inactive'
-            })
+            # Auto-discover available device types from database (only valid ones)
+            cursor.execute(f"""
+                SELECT 
+                    device_type,
+                    COUNT(*) as event_count,
+                    COUNT(DISTINCT device_id) as device_count,
+                    MAX(received_at) as last_activity,
+                    MIN(received_at) as first_activity
+                FROM water_events 
+                WHERE device_type IN ({placeholders}) 
+                GROUP BY device_type 
+                ORDER BY event_count DESC
+            """, valid_device_types)
         
-        # Get recent activity across all devices (only valid device types)
-        cursor.execute(f"""
-            SELECT device_id, device_type, event_type, received_at, volume_ml, system_status
-            FROM water_events 
-            WHERE device_type IN ({placeholders})
-            ORDER BY received_at DESC 
-            LIMIT 10
-        """, valid_device_types)
-        
-        recent_activity = []
-        for row in cursor.fetchall():
-            device_id, device_type, event_type, received_at, volume_ml, system_status = row
-            recent_activity.append({
-                'device_id': device_id,
-                'device_type': device_type,
-                'event_type': event_type,
-                'received_at': received_at,
-                'volume_ml': volume_ml,
-                'system_status': system_status
-            })
-        
-        conn.close()
+            discovered_types = []
+            for row in cursor.fetchall():
+                device_type, event_count, device_count, last_activity, first_activity = row
+                
+                # Get device type configuration
+                from device_config import get_device_config
+                config = get_device_config(device_type)
+                
+                discovered_types.append({
+                    'type': device_type,
+                    'name': config.get('name', device_type.title()),
+                    'icon': config.get('icon', '📱'),
+                    'color': config.get('color', '#95a5a6'),
+                    'description': config.get('description', f'{device_type} devices'),
+                    'event_count': event_count,
+                    'device_count': device_count,
+                    'last_activity': last_activity,
+                    'first_activity': first_activity,
+                    'status': 'active' if last_activity else 'inactive'
+                })
+            
+            # Get recent activity across all devices (only valid device types)
+            cursor.execute(f"""
+                SELECT device_id, device_type, event_type, received_at, volume_ml, system_status
+                FROM water_events 
+                WHERE device_type IN ({placeholders})
+                ORDER BY received_at DESC 
+                LIMIT 10
+            """, valid_device_types)
+            
+            recent_activity = []
+            for row in cursor.fetchall():
+                device_id, device_type, event_type, received_at, volume_ml, system_status = row
+                recent_activity.append({
+                    'device_id': device_id,
+                    'device_type': device_type,
+                    'event_type': event_type,
+                    'received_at': received_at,
+                    'volume_ml': volume_ml,
+                    'system_status': system_status
+                })
         
         logging.info(f"Dashboard accessed from {client_ip} - {len(discovered_types)} device types discovered")
         
@@ -1575,24 +1721,21 @@ def admin_export_data(format):
 def health_check():
     """Endpoint sprawdzania stanu aplikacji"""
     cleanup_expired_sessions()
-    
     try:
-        conn = sqlite3.connect(DATABASE_PATH)
-        cursor = conn.cursor()
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
         
-        # Policz aktywne sesje z bazy
-        cursor.execute('SELECT COUNT(*) FROM admin_sessions')
-        active_sessions_count = cursor.fetchone()[0]
-        
-        # Policz zablokowane konta
-        current_time = int(time.time())
-        cursor.execute('''
-            SELECT COUNT(*) FROM failed_login_attempts 
-            WHERE locked_until IS NOT NULL AND locked_until > ?
-        ''', (current_time,))
-        locked_accounts_count = cursor.fetchone()[0]
-        
-        conn.close()
+            # Policz aktywne sesje z bazy
+            cursor.execute('SELECT COUNT(*) FROM admin_sessions')
+            active_sessions_count = cursor.fetchone()[0]
+
+            # Policz zablokowane konta
+            current_time = int(time.time())
+            cursor.execute('''
+                SELECT COUNT(*) FROM failed_login_attempts 
+                WHERE locked_until IS NOT NULL AND locked_until > ?
+            ''', (current_time,))
+            locked_accounts_count = cursor.fetchone()[0]
         
     except Exception as e:
         logging.error(f"Health check DB error: {e}")
