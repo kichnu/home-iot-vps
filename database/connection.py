@@ -1,25 +1,37 @@
 """
-Database connection management with context manager
-Centralized database operations for Home IoT Platform
+Database connection management with context manager pattern
+WAL mode enabled for better concurrency
 """
 
 import sqlite3
 import logging
 from contextlib import contextmanager
-import os
+from config import Config
 
-# Import from app.py (będzie dostępne po imporcie)
+
+# Global database path (set by init_database_path or use Config default)
 DATABASE_PATH = None
 
-def init_database_path(path):
-    """Initialize database path from main app"""
+
+def init_database_path(path: str) -> None:
+    """
+    Initialize the global database path.
+    
+    Args:
+        path: Full path to SQLite database file
+        
+    Example:
+        >>> init_database_path('/opt/home-iot/data/database/water_events.db')
+    """
     global DATABASE_PATH
     DATABASE_PATH = path
+    logging.info(f"Database path initialized: {path}")
+
 
 @contextmanager
-def get_db_connection(row_factory=True):
+def get_db_connection(row_factory: bool = True):
     """
-    Context manager for database connections.
+    Context manager for database connections with WAL mode.
     
     Args:
         row_factory: If True, returns dict-like rows. If False, returns tuples.
@@ -40,13 +52,20 @@ def get_db_connection(row_factory=True):
             except:
                 conn.rollback()
                 raise
+    
+    Yields:
+        sqlite3.Connection: Database connection object
+        
+    Raises:
+        RuntimeError: If database path not initialized
     """
-    if DATABASE_PATH is None:
-        raise RuntimeError("Database path not initialized. Call init_database_path() first.")
+    db_path = DATABASE_PATH or Config.DATABASE_PATH
+    if db_path is None:
+        raise RuntimeError("Database path not initialized.")
     
     conn = None
     try:
-        conn = sqlite3.connect(DATABASE_PATH)
+        conn = sqlite3.connect(db_path)
         
         if row_factory:
             conn.row_factory = sqlite3.Row
@@ -72,27 +91,24 @@ def get_db_connection(row_factory=True):
         if conn:
             conn.close()
 
-def execute_query(query, params=None, fetch=True):
+
+def execute_query(query: str, params: tuple = None):
     """
-    Execute a single query with automatic connection management.
+    Execute a query and return results (legacy wrapper).
     
     Args:
         query: SQL query string
-        params: Query parameters (tuple or dict)
-        fetch: If True, returns results. If False, returns rowcount.
-    
+        params: Optional query parameters
+        
     Returns:
-        List of dicts (if fetch=True) or rowcount (if fetch=False)
+        List of Row objects (dict-like)
+        
+    Note: Prefer using get_db_connection() context manager directly.
     """
     with get_db_connection() as conn:
         cursor = conn.cursor()
-        
         if params:
             cursor.execute(query, params)
         else:
             cursor.execute(query)
-        
-        if fetch:
-            return [dict(row) for row in cursor.fetchall()]
-        else:
-            return cursor.rowcount
+        return cursor.fetchall()

@@ -14,8 +14,7 @@ import time
 from flask import Flask, request, jsonify, render_template, send_file, Response, redirect, url_for, session, flash
 import sqlite3
 import json
-# from database import get_db_connection, execute_query, init_database_path
-from database import get_db_connection, init_database_path, init_database, execute_safe_query
+from database import get_db_connection, execute_query, init_database_path
 import logging
 from datetime import datetime, timedelta
 from datetime import timezone as TZ
@@ -45,7 +44,7 @@ from auth import (
     require_auth,
     require_admin_auth
 )
-
+# Ładowanie .env file dla developmentu (przed importami Flask)
 try:
     from dotenv import load_dotenv
     # Szukaj .env w katalogu aplikacji
@@ -101,10 +100,10 @@ def get_real_ip_for_limiter():
 limiter = Limiter(
     app=app,
     key_func=get_real_ip_for_limiter,
-    default_limits=["1000 per day", "100 per hour"],
-    storage_uri="memory://",
-    strategy="fixed-window",
-    headers_enabled=True,
+    default_limits=["1000 per day", "100 per hour"],  # Global defaults
+    storage_uri="memory://",  # In-memory storage (sufficient for single instance)
+    strategy="fixed-window",  # Simple and effective
+    headers_enabled=True,  # Send rate limit info in response headers
 )
 
 logging.basicConfig(
@@ -120,56 +119,312 @@ Config.log_startup_info(logging)
 
 init_database_path(Config.DATABASE_PATH)
 
+def init_database():
+    """Inicjalizacja bazy danych SQLite z obsługą multi-device architecture"""
+    os.makedirs(os.path.dirname(Config.DATABASE_PATH), exist_ok=True)
+    
+    conn = sqlite3.connect(Config.DATABASE_PATH)
+    cursor = conn.cursor()
+
+    # ✅ DODAJ TO TUTAJ (na samym początku, przed resztą):
+    # ==============================================================
+    # TABELE SESJI - Database-backed session management
+    # ==============================================================
+    
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS admin_sessions (
+            session_id TEXT PRIMARY KEY,
+            client_ip TEXT NOT NULL,
+            created_at INTEGER NOT NULL,
+            last_activity INTEGER NOT NULL,
+            user_agent TEXT
+        )
+    ''')
+    
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_session_activity ON admin_sessions(last_activity)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_session_ip ON admin_sessions(client_ip)')
+    
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS failed_login_attempts (
+            client_ip TEXT PRIMARY KEY,
+            attempt_count INTEGER DEFAULT 0,
+            last_attempt INTEGER NOT NULL,
+            locked_until INTEGER DEFAULT NULL
+        )
+    ''')
+    
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_locked_until ON failed_login_attempts(locked_until)')
+    
+    logging.info("✅ Session tables initialized")
+    
+    # Sprawdź czy tabela istnieje i ma stare kolumny
+    cursor.execute("PRAGMA table_info(water_events)")
+    existing_columns = [row[1] for row in cursor.fetchall()]
+
+    if 'daily_volume_ml' not in existing_columns:
+        try:
+            cursor.execute('''
+                ALTER TABLE water_events 
+                ADD COLUMN daily_volume_ml REAL DEFAULT NULL
+            ''')
+            logging.info("Added daily_volume_ml column to water_events table")
+        except sqlite3.Error as e:
+            logging.warning(f"Could not add daily_volume_ml column: {e}")
+    
+    if not existing_columns:
+        # Nowa instalacja - utwórz tabelę z wszystkimi kolumnami (multi-device ready)
+        cursor.execute('''
+            CREATE TABLE water_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                device_id TEXT NOT NULL,
+                device_type TEXT DEFAULT NULL,
+                timestamp TEXT NOT NULL,
+                unix_time INTEGER NOT NULL,
+                event_type TEXT NOT NULL,
+                volume_ml INTEGER DEFAULT NULL,
+                water_status TEXT DEFAULT NULL,
+                system_status TEXT NOT NULL,
+                received_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                client_ip TEXT,
+                
+                -- Water system specific columns
+                time_gap_1 INTEGER DEFAULT NULL,
+                time_gap_2 INTEGER DEFAULT NULL,
+                water_trigger_time INTEGER DEFAULT NULL,
+                pump_duration INTEGER DEFAULT NULL,
+                pump_attempts INTEGER DEFAULT NULL,
+                gap1_fail_sum INTEGER DEFAULT NULL,
+                gap2_fail_sum INTEGER DEFAULT NULL,
+                water_fail_sum INTEGER DEFAULT NULL,
+                algorithm_data TEXT DEFAULT NULL,
+                daily_volume_ml INTEGER DEFAULT NULL,
+
+                last_reset_timestamp INTEGER DEFAULT NULL,
+                
+                -- Temperature sensor specific columns  
+                temperature REAL DEFAULT NULL,
+                humidity REAL DEFAULT NULL,
+                
+                -- Security system specific columns
+                zone_status TEXT DEFAULT NULL,
+                motion_detected BOOLEAN DEFAULT NULL
+            )
+        ''')
+        logging.info("Created new multi-device water_events table")
+        
+    else:
+        # Istniejąca tabela - dodaj nowe kolumny jeśli nie istnieją
+        new_columns = [
+            # Multi-device core
+            'device_type TEXT DEFAULT NULL',
+            
+            # Algorithm columns (mogą już istnieć)
+            'time_gap_1 INTEGER DEFAULT NULL',
+            'time_gap_2 INTEGER DEFAULT NULL', 
+            'water_trigger_time INTEGER DEFAULT NULL',
+            'pump_duration INTEGER DEFAULT NULL',
+            'pump_attempts INTEGER DEFAULT NULL',
+            'gap1_fail_sum INTEGER DEFAULT NULL',
+            'gap2_fail_sum INTEGER DEFAULT NULL', 
+            'water_fail_sum INTEGER DEFAULT NULL',
+            'last_reset_timestamp INTEGER DEFAULT NULL',
+            'algorithm_data TEXT DEFAULT NULL',
+            
+            # Temperature sensor columns
+            'temperature REAL DEFAULT NULL',
+            'humidity REAL DEFAULT NULL',
+            
+            # Security system columns  
+            'zone_status TEXT DEFAULT NULL',
+            'motion_detected BOOLEAN DEFAULT NULL'
+        ]
+        
+        for column_def in new_columns:
+            column_name = column_def.split()[0]
+            if column_name not in existing_columns:
+                try:
+                    cursor.execute(f'ALTER TABLE water_events ADD COLUMN {column_def}')
+                    logging.info(f"Added column: {column_name}")
+                except sqlite3.Error as e:
+                    logging.warning(f"Could not add column {column_name}: {e}")
+        
+        # Populate device_type for existing data (one-time operation)
+        cursor.execute("SELECT COUNT(*) FROM water_events WHERE device_type IS NULL")
+        untyped_records = cursor.fetchone()[0]
+        
+        if untyped_records > 0:
+            logging.info(f"Populating device_type for {untyped_records} existing records...")
+            
+            # Import device mapping
+            try:
+                from device_config import get_device_type
+                
+                # Update existing records based on device_id
+                cursor.execute("SELECT DISTINCT device_id FROM water_events WHERE device_type IS NULL")
+                device_ids = [row[0] for row in cursor.fetchall()]
+                
+                for device_id in device_ids:
+                    device_type = get_device_type(device_id)
+                    cursor.execute(
+                        "UPDATE water_events SET device_type = ? WHERE device_id = ? AND device_type IS NULL",
+                        (device_type, device_id)
+                    )
+                    updated = cursor.rowcount
+                    logging.info(f"Updated {updated} records: {device_id} → {device_type}")
+                    
+            except ImportError:
+                logging.warning("device_config not available, setting device_type to device_id")
+                cursor.execute("UPDATE water_events SET device_type = device_id WHERE device_type IS NULL")
+    
+    # Indeksy dla multi-device performance
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_device_id ON water_events(device_id)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_device_type ON water_events(device_type)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_device_id_type ON water_events(device_id, device_type)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_timestamp ON water_events(unix_time)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_event_type ON water_events(event_type)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_received_at ON water_events(received_at)')
+    
+    logging.info("Database initialized successfully with multi-device architecture")
+
+# def require_auth(f):
+#     """Dekorator do sprawdzania autoryzacji ESP32"""
+#     @wraps(f)
+#     def decorated_function(*args, **kwargs):
+#         auth_header = request.headers.get('Authorization')
+        
+#         client_ip = get_real_ip()
+        
+#         if not auth_header:
+#             logging.warning(f"Missing Authorization header from {client_ip}")
+#             return jsonify({'error': 'Missing Authorization header'}), 401
+        
+#         if not auth_header.startswith('Bearer '):
+#             logging.warning(f"Invalid Authorization format from {client_ip}")
+#             return jsonify({'error': 'Invalid Authorization format'}), 401
+        
+#         token = auth_header[7:]
+        
+#         # if token != Config.API_TOKEN:
+#         if not secure_compare(token, Config.API_TOKEN):
+#             logging.warning(f"Invalid token from {client_ip}: {token}")
+#             return jsonify({'error': 'Invalid token'}), 401
+        
+#         return f(*args, **kwargs)
+    
+#     return decorated_function
+
+# def require_admin_auth(f):
+#     """Dekorator do sprawdzania autoryzacji Admin Panel - Session Based"""
+#     @wraps(f)
+#     def decorated_function(*args, **kwargs):
+#         # W trybie Nginx nie przekierowujemy HTTP->HTTPS (Nginx to robi)
+        
+#         # Sprawdź sesję
+#         if not validate_session():
+#             if request.endpoint == 'admin_dashboard':
+#                 return redirect(url_for('login_page'))
+#             return jsonify({'error': 'Authentication required'}), 401
+        
+#         return f(*args, **kwargs)
+    
+#     return decorated_function
+
+def execute_safe_query(query, params=None):
+    """Bezpiecznie wykonaj zapytanie SQL"""
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+        
+            # Ustaw timeout
+            conn.execute('PRAGMA query_timeout = 10000')  # 10 sekund
+
+            if params:
+                cursor.execute(query, params)
+            else:
+                cursor.execute(query)
+
+            results = cursor.fetchall()
+
+            # Limit wyników
+            if len(results) > 1000:
+                results = results[:1000]
+
+            return True, [dict(row) for row in results]
+        
+    except Exception as e:
+        return False, str(e)
+
 @app.route('/api/water-events', methods=['POST'])
 @limiter.limit("60 per hour")  
 @require_auth
+
 def receive_water_event():
-    """
-    Receive and store water system events from ESP32 devices.
-    
-    Validates event data, determines device type, and stores in database.
-    """
     client_ip = get_real_ip()
     
     try:
         data = request.get_json()
         
-        # Validate event data
+        # 🆕 DEBUG: Log RAW data
+        logging.info(f"🔍 START LOG RECEIVING FROM HOME IOT")
+        logging.info(f"🔍 RAW data received: {data}")
+        logging.info(f"🔍 Data type: {type(data)}")
+        
+        # Walidacja
         is_valid, error_msg = validate_event_data(data)
         if not is_valid:
-            logging.warning(f"Invalid data from {data.get('device_id', 'unknown')}: {error_msg}")
+            logging.warning(f"Invalid data: {error_msg}")
             return jsonify({'error': error_msg}), 400
         
-        # Get device type
+        # 🆕 DEBUG: After validation
+        logging.info(f"✅ Validation passed")
+        
         from device_config import get_device_type
         device_type = get_device_type(data['device_id'])
         
-        # Extract optional fields
+        # 🆕 DEBUG: Device type
+        logging.info(f"🔍 Device type: {device_type}")
+        
         daily_volume_ml = data.get('daily_volume_ml', None)
         
-        # Prepare algorithm values
+        # 🆕 DEBUG: Daily volume
+        logging.info(f"🔍 Daily volume: {daily_volume_ml} (type: {type(daily_volume_ml)})")
+        
+        # Przygotuj algorithm values
         algorithm_values = {}
-        algorithm_fields = [
-            'time_gap_1', 'time_gap_2', 'water_trigger_time', 
-            'pump_duration', 'pump_attempts', 'gap1_fail_sum', 
-            'gap2_fail_sum', 'water_fail_sum', 
-            'last_reset_timestamp', 'algorithm_data'
-        ]
+        algorithm_fields = ['time_gap_1', 'time_gap_2', 'water_trigger_time', 
+                          'pump_duration', 'pump_attempts', 'gap1_fail_sum', 
+                          'gap2_fail_sum', 'water_fail_sum', 
+                          'last_reset_timestamp', 'algorithm_data']
+        
+        # 🆕 DEBUG: Before loop
+        logging.info(f"🔍 Processing algorithm fields...")
         
         for field in algorithm_fields:
-            algorithm_values[field] = data.get(field, None)
+            value = data.get(field, None)
+            algorithm_values[field] = value
+            # 🆕 DEBUG: Each field
+            logging.info(f"  - {field}: {value} (type: {type(value)})")
         
-        # Prepare timestamp
-        from datetime import timezone
-        timestamp_value = data.get('timestamp') or datetime.fromtimestamp(
-            data['unix_time'], 
-            timezone.utc
-        ).strftime('%Y-%m-%dT%H:%M:%SZ')
+        # 🆕 DEBUG: Before INSERT
+        logging.info(f"🔍 Preparing INSERT statement...")
 
-        # Store event in database
+        timestamp_value = data.get('timestamp')
+        if not timestamp_value:
+            timestamp_value = datetime.fromtimestamp(
+                data['unix_time'], 
+                TZ.utc
+            ).strftime('%Y-%m-%dT%H:%M:%SZ')
+
         with get_db_connection() as conn:
             cursor = conn.cursor()
             
+            from datetime import timezone
+            timestamp_value = data.get('timestamp') or datetime.fromtimestamp(
+                data['unix_time'], 
+                timezone.utc
+            ).strftime('%Y-%m-%dT%H:%M:%SZ')
+            
+            # INSERT
             cursor.execute('''
                 INSERT INTO water_events 
                 (device_id, device_type, timestamp, unix_time, event_type, volume_ml, 
@@ -201,17 +456,19 @@ def receive_water_event():
                 daily_volume_ml
             ))
             
-            # event_id = cursor.lastrowid
+            event_id = cursor.lastrowid
         
-        logging.info(
-            f"Event saved: {data['device_id']} [{device_type}] "
-            f"- {data['event_type']} - ID: {event_id}"
-        )
+        event_id = cursor.lastrowid
+        conn.commit()
+        conn.close()
+        logging.info(f"✅ Event saved [ID: {event_id}]")
         
         return jsonify({'success': True, 'event_id': event_id}), 200
         
     except Exception as e:
-        logging.error(f"Error processing event from {client_ip}: {str(e)}", exc_info=True)
+        import traceback
+        logging.error(f"❌ ERROR: {str(e)}")
+        logging.error(f"Traceback:\n{traceback.format_exc()}")
         return jsonify({'error': 'Internal server error'}), 500
 
 @app.route('/api/events', methods=['GET'])
@@ -266,7 +523,7 @@ def get_events():
 @require_auth
 def get_stats():
     """Endpoint do pobierania statystyk"""
-
+    
     try:
         with get_db_connection() as conn:
             cursor = conn.cursor()
@@ -712,7 +969,7 @@ def health_check():
         'nginx_mode': Config.ENABLE_NGINX_MODE,
         'http_port': Config.HTTP_PORT,
         'admin_port': Config.ADMIN_PORT,
-        'session_management': 'database',
+        'session_management': 'database',  # ✅ ZMIENIONE
         'active_sessions': active_sessions_count,
         'locked_accounts': locked_accounts_count
     }), 200
