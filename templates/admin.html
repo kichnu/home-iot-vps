@@ -1,13 +1,14 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>
         {% if device_context %}
-            {{ device_context.icon }} {{ device_context.name }} - Admin Panel
+        {{ device_context.icon }} {{ device_context.name }} - Admin Panel
         {% else %}
-            🐠 Water System Admin Panel
+        🐠 Water System Admin Panel
         {% endif %}
     </title>
     <style>
@@ -43,13 +44,16 @@
             margin: 0 auto;
             background: white;
             border-radius: 15px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
             overflow: hidden;
         }
 
         .header {
             background: linear-gradient(135deg, var(--device-color) 0%, var(--device-color-dark) 100%);
-            color: white;
+            display: flex;
+            justify-content: space-between;
+
+            color: #2c3e50;
             padding: 20px 30px;
             position: relative;
         }
@@ -59,25 +63,47 @@
             margin-bottom: 5px;
         }
 
-        .header .subtitle {
+        .header-name {
+       display: flex;
+        flex-direction: column;
+        justify-content: flex-start;
+        }
+
+
+        .header-title {
+            display: inline-block;
+            opacity: 0.9;
+            font-size: 14px;
+  
+            
+        }
+        
+        .header-subtitle {
+            display: inline-block;
             opacity: 0.9;
             font-size: 14px;
         }
 
         .header-controls {
-            position: absolute;
             top: 20px;
             right: 30px;
             display: flex;
-            gap: 15px;
+
+            justify-content: center;
+
             align-items: center;
         }
 
         .dashboard-btn {
-            background: rgba(255,255,255,0.2);
+            background: rgba(255, 255, 255, 0.2);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 140px;
+            height: 40px;
             color: white;
             border: none;
-            padding: 8px 16px;
+            /* padding: 8px 16px; */
             border-radius: 6px;
             cursor: pointer;
             font-weight: bold;
@@ -86,20 +112,31 @@
         }
 
         .dashboard-btn:hover {
-            background: rgba(255,255,255,0.3);
+            background: rgba(255, 255, 255, 0.3);
             transform: translateY(-1px);
         }
 
         .session-info {
-            background: rgba(255,255,255,0.1);
+            /* background: rgba(255,255,255,0.1); */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            width: 150px;
+            height: 40px;
             padding: 8px 12px;
             border-radius: 6px;
-            font-size: 12px;
+            font-size: 14px;
             backdrop-filter: blur(10px);
         }
 
         .logout-btn {
             background: #e74c3c;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 140px;
+            height: 40px;
             color: white;
             border: none;
             padding: 10px 20px;
@@ -110,7 +147,7 @@
         }
 
         .logout-btn:hover {
-            background: #c0392b;
+            background: #ff6453;
             transform: translateY(-1px);
         }
 
@@ -132,7 +169,7 @@
 
         .quick-queries {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
             gap: 15px;
             margin-bottom: 20px;
         }
@@ -146,7 +183,7 @@
             cursor: pointer;
             font-weight: bold;
             transition: all 0.3s;
-            font-size: 14px;
+            font-size: 16px;
         }
 
         .quick-btn:hover {
@@ -251,105 +288,40 @@
             color: #7f8c8d;
             font-size: 14px;
         }
-/* 
-        .results-table {
-            width: 100%;
-            border-collapse: collapse;
-            background: white;
-            border-radius: 8px;
-            overflow: hidden;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            max-height: 1000px;
-            overflow-y: auto;
-            display: block;
-            position: relative;
-        }
 
-        .results-table thead,
-        .results-table tbody {
-            display: table;
-            width: 100%;
-            table-layout: fixed;
-        }
-
-        .results-table thead {
-            border-bottom: solid 10px white;
-            position: sticky;
-            top: 0;
-            z-index: 100;
-        }
-
-        .results-table th,
-        .results-table td {
-            padding: 8px 4px;
-            text-align: center;
-        
-            border-right: 1px solid #ecf0f1;
-            word-wrap: break-word;
-            overflow-wrap: break-word;
-            vertical-align: middle;
-        }
-
-        .results-table th {
-            color: black;
-            font-weight: bold;
-            height: 180px;
-            min-height: 80px;
-            position: relative;
-            white-space: nowrap;
-        }
-
-        .results-table th span {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%) rotate(-90deg);
-            transform-origin: center center;
-            white-space: nowrap;
-            font-size: 14px;
-            font-weight: bold;
-            letter-spacing: 0.5px;
-        }
-
-        .results-table.few-columns th {
-            height: auto;
-            min-height: 40px;
-        }
-
-        .results-table.few-columns th span {
-            transform: translate(-50%, -50%) rotate(0deg);
-            position: static;
-            transform: none;
-            display: block;
-            padding: 10px;
-            font-size: 13px;
-        }
-
-        .results-table td {
-            font-size: 12px;
-            max-width: 100px;
-            padding: 4px 4px;
-        } */
 
         /* Device-type specific column styling */
-        .th-id, .th-device_id, .th-timestamp, .th-event_type, .th-received_at {
+        .th-id,
+        .th-device_id,
+        .th-timestamp,
+        .th-event_type,
+        .th-received_at {
             background-color: #a6b5c5;
         }
 
-        .th-pump_duration, .th-pump_attempts, .th-volume_ml, .th-time_gap_1, 
-        .th-time_gap_2, .th-water_trigger_time, .th-daily_volume_ml {
+        .th-pump_duration,
+        .th-pump_attempts,
+        .th-volume_ml,
+        .th-time_gap_1,
+        .th-time_gap_2,
+        .th-water_trigger_time,
+        .th-daily_volume_ml {
             background-color: rgb(106, 191, 248);
         }
 
-        .th-gap1_fail_sum, .th-gap2_fail_sum, .th-water_fail_sum {
+        .th-gap1_fail_sum,
+        .th-gap2_fail_sum,
+        .th-water_fail_sum {
             background-color: rgb(252, 107, 107);
         }
 
-        .th-temperature, .th-humidity {
+        .th-temperature,
+        .th-humidity {
             background-color: #f39c12;
         }
 
-        .th-zone_status, .th-motion_detected {
+        .th-zone_status,
+        .th-motion_detected {
             background-color: #95a5a6;
         }
 
@@ -357,20 +329,20 @@
             background-color: #9b59b6;
         }
 
-        .th-water_status{
+        .th-water_status {
             background-color: #a6b5c5;
         }
 
-        .th-system_status{
+        .th-system_status {
             background-color: #a0c9f5;
         }
 
         .row-auto-pump {
-            background-color: #e3f2fd; 
+            background-color: #e3f2fd;
         }
 
         .row-manual-normal {
-            background-color: #e8f5e8; 
+            background-color: #e8f5e8;
         }
 
         .row-manual-extended {
@@ -389,7 +361,7 @@
             background-color: white;
         }
 
-        .system-status-error{
+        .system-status-error {
             /* border-bottom: 2px solid #af4a55;
             border-top: 2px solid #af4a55; */
             background-color: rgb(252, 107, 107);
@@ -411,7 +383,7 @@
             border: 1px solid #ddd;
             border-radius: 8px;
             background: white;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
         }
 
         .results-table-transposed {
@@ -436,7 +408,7 @@
             text-align: center;
             font-size: 13px;
             font-weight: 600;
-            border-right: 1px solid rgba(255,255,255,0.2);
+            border-right: 1px solid rgba(255, 255, 255, 0.2);
             border-bottom: 2px solid white;
             white-space: nowrap;
             min-width: 120px;
@@ -473,8 +445,9 @@
             border-right: 3px solid #ddd;
             border-bottom: 1px solid #e0e0e0;
             white-space: nowrap;
-            min-width: 160px;
-            max-width: 180px;
+            /* min-width: 160px;
+            max-width: 180px; */
+            width: 160px;
             font-size: 13px;
             background: #f8f9fa;
         }
@@ -492,37 +465,61 @@
         }
 
         /* Kategorie kolorów dla pól */
-        .cat-general { background: #ecf0f1 !important; }
-        .cat-sensor { background: #d5e8f7 !important; }
-        .cat-errors { background: #fadbd8 !important; }
-        .cat-temp { background: #fdebd0 !important; }
-        .cat-security { background: #e8daef !important; }
-        .cat-status { background: #d4e9e2 !important; }
-        .cat-default { background: #f8f9fa !important; }
+        .cat-general {
+            background: #ecf0f1 !important;
+        }
+
+        .cat-sensor {
+            background: #d5e8f7 !important;
+        }
+
+        .cat-errors {
+            background: #fadbd8 !important;
+        }
+
+        .cat-temp {
+            background: #fdebd0 !important;
+        }
+
+        .cat-security {
+            background: #e8daef !important;
+        }
+
+        .cat-status {
+            background: #d4e9e2 !important;
+        }
+
+        .cat-default {
+            background: #f8f9fa !important;
+        }
 
         /* Kolory dla nagłówków rekordów (event types) */
-        .record-header.row-auto-pump { 
-            background: linear-gradient(135deg, #5dade2 0%, #3498db 100%) !important; 
+        .record-header.row-auto-pump {
+            background: linear-gradient(135deg, #5dade2 0%, #3498db 100%) !important;
         }
-        .record-header.row-manual-normal { 
-            background: linear-gradient(135deg, #58d68d 0%, #27ae60 100%) !important; 
+
+        .record-header.row-manual-normal {
+            background: linear-gradient(135deg, #58d68d 0%, #27ae60 100%) !important;
         }
-        .record-header.row-manual-extended { 
-            background: linear-gradient(135deg, #5dade2 0%, #3498db 100%) !important; 
+
+        .record-header.row-manual-extended {
+            background: linear-gradient(135deg, #5dade2 0%, #3498db 100%) !important;
         }
-        .record-header.row-auto-complete { 
-            background: linear-gradient(135deg, #85929e 0%, #5d6d7e 100%) !important; 
+
+        .record-header.row-auto-complete {
+            background: linear-gradient(135deg, #85929e 0%, #5d6d7e 100%) !important;
         }
-        .record-header.row-stats-reset { 
-            background: linear-gradient(135deg, #f4d03f 0%, #f39c12 100%) !important; 
+
+        .record-header.row-stats-reset {
+            background: linear-gradient(135deg, #f4d03f 0%, #f39c12 100%) !important;
         }
-        .record-header.system-status-error { 
-            background: linear-gradient(135deg, #ec7063 0%, #e74c3c 100%) !important; 
+
+        .record-header.system-status-error {
+            background: linear-gradient(135deg, #ec7063 0%, #e74c3c 100%) !important;
         }
 
         /* Hover efekty */
         .results-table-transposed tbody tr:hover .field-name {
-            background: #e3f2fd !important;
             font-weight: bold;
         }
 
@@ -558,45 +555,11 @@
 
 
 
-        @media (max-width: 768px) {
-            .content {
-                padding: 20px;
-            }
 
-            .container{
-                width: 95%;
-            }
 
-            .header-controls {
-                position: static;
-                margin-top: 15px;
-                justify-content: flex-start;
-            }
 
-            .quick-queries {
-                grid-template-columns: 1fr;
-            }
 
-            .execute-section {
-                flex-direction: column;
-                align-items: stretch;
-            }
 
-            .execute-btn,
-            .export-btn {
-                width: 100%;
-                margin: 5px 0;
-            }
-
-            .results-table {
-                font-size: 12px;
-            }
-
-            .results-table th,
-            .results-table td {
-                padding: 8px 4px;
-            }
-        }
 
         .alert {
             padding: 15px;
@@ -648,8 +611,13 @@
         }
 
         @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
         }
 
         .no-results {
@@ -667,7 +635,7 @@
             color: white;
             padding: 15px 20px;
             border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
             display: none;
             z-index: 1000;
         }
@@ -685,10 +653,10 @@
         }
 
         .help-section code {
-            background: #34495e;
-            color: white;
-            padding: 2px 6px;
-            border-radius: 4px;
+            /* background: #34495e; */
+            /* color: white; */
+            /* padding: 2px 6px; */
+            /* border-radius: 4px; */
             font-family: monospace;
         }
 
@@ -699,32 +667,127 @@
         .help-section li {
             margin: 5px 0;
         }
-</style>
+
+
+        @media (max-width: 1200px) {
+            .header {
+
+                flex-direction: column;
+                justify-content: center;
+            }
+
+            .header-title{
+                text-align: center;
+                color: #2c3e50;
+            }
+
+            .header-subtitle{
+                text-align: center;
+
+            }
+
+            .header-name {
+                margin-bottom: 20px;
+            }
+
+        }
+
+        @media (max-width: 768px) {
+            body {
+                padding: 5px;
+            }
+
+            .content {
+                padding: 5px;
+            }
+
+            .container {
+                width: 100%;
+            }
+
+            .header{
+                padding: 20px 10px;
+            }
+
+
+
+            .header-subtitle{
+                display: none;
+            }
+
+            .field-name.sticky-col {
+                padding: 10px 5px;
+                white-space: nowrap;
+                width: 120px;
+
+                font-size: 13px;
+
+            }
+
+            /* .header-controls {
+                position: static;
+                margin-top: 15px;
+                justify-content: flex-start;
+            } */
+
+            .quick-queries {
+                grid-template-columns: 1fr;
+            }
+
+            .execute-section {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .execute-btn,
+            .export-btn {
+                width: 100%;
+                margin: 5px 0;
+            }
+
+            .results-table {
+                font-size: 12px;
+            }
+
+            .results-table th,
+            .results-table td {
+                padding: 8px 4px;
+            }
+        }
+    </style>
 </head>
-<body {% if device_context %}class="device-type-{{ device_context.type }}"{% endif %}>
+
+<body {% if device_context %}class="device-type-{{ device_context.type }}" {% endif %}>
     <div class="session-warning" id="sessionWarning">
         ⚠️ Session expires in <span id="warningTime">5</span> minutes. Click to extend.
     </div>
 
     <div class="container">
+
         <div class="header">
-            <h1>
-                {% if device_context %}
-                    {{ device_context.icon }} {{ device_context.name }} - Admin Panel
-                {% else %}
-                    🐠 Dolewka Database - Admin Panel
-                {% endif %}
-            </h1>
-            <div class="subtitle">
-                {% if device_context %}
+            <div class="header-name">
+                <div class="header-title">
+                    <h1>
+                        {% if device_context %}
+                        {{ device_context.name }} - Admin Panel
+                        {% else %}
+                        🐠 Dolewka Database - Admin Panel
+                        {% endif %}
+                    </h1>
+                </div>
+
+                <div class="header-subtitle">
+                    {% if device_context %}
                     {{ device_context.description }} - Device Management Interface
-                {% else %}
+                    {% else %}
                     Multi-device IoT management interface
-                {% endif %}
+                    {% endif %}
+                </div>
+
             </div>
             <div class="header-controls">
                 <a href="/dashboard" class="dashboard-btn">
-                    🏠 Dashboard
+                    Dashboard
                 </a>
                 <div class="session-info" id="sessionInfo">
                     Loading session info...
@@ -735,15 +798,16 @@
             </div>
         </div>
 
+
         <div class="content">
             <!-- Quick Queries Section -->
             <div class="section">
-                <h2>📊 Quick Queries
+                <h2>Quick Queries
                     {% if device_context %}
-                        - {{ device_context.name }}
+                    - {{ device_context.name }}
                     {% endif %}
                 </h2>
-         
+
                 <div class="quick-queries" id="quickQueriesContainer">
                     <!-- Quick queries will be loaded dynamically -->
                 </div>
@@ -752,10 +816,10 @@
             <!-- Results Section -->
             <div class="section">
                 <div class="results-header">
-                    <h2>📋 Query Results</h2>
+                    <h2>Query Results</h2>
                     <div class="results-info" id="resultsInfo">Ready for query</div>
                 </div>
-                
+
                 <div id="resultsContainer">
                     <div class="no-results">Enter a SQL query and click Execute to see results</div>
                 </div>
@@ -763,20 +827,17 @@
 
             <!-- Custom SQL Query Section -->
             <div class="section">
-                <h2>💻 Custom SQL Query</h2>
+                <h2>Custom SQL Query</h2>
                 <div class="sql-editor">
-                    <textarea 
-                        id="sqlQuery" 
-                        class="sql-textarea" 
-                        placeholder="SELECT * FROM water_events WHERE device_type = '{{ device_context.type if device_context else 'water_system' }}' ORDER BY received_at DESC LIMIT 50;"
-                    ></textarea>
+                    <textarea id="sqlQuery" class="sql-textarea"
+                        placeholder="SELECT * FROM water_events WHERE device_type = '{{ device_context.type if device_context else 'water_system' }}' ORDER BY received_at DESC LIMIT 50;"></textarea>
                 </div>
-                
+
                 <div class="execute-section">
                     <button class="execute-btn" onclick="executeCustomQuery()" id="executeBtn">
                         Execute Query
                     </button>
-                    
+
                     <div class="export-section" id="exportSection" style="display: none;">
                         <span>Export:</span>
                         <a href="#" class="export-btn" id="exportCsv">CSV</a>
@@ -784,48 +845,57 @@
                     </div>
                 </div>
             </div>
-            
+
             <!-- Help Section -->
             <div class="help-section">
-                <h3>📚 Help & Examples
+                <h3>Help & Examples
                     {% if device_context %}
-                        - {{ device_context.name }}
+                    - {{ device_context.name }}
                     {% endif %}
                 </h3>
-                <p><strong>Available table:</strong> <code>water_events</code></p>
+                <p>Available table: <code>water_events</code></p>
                 {% if device_context %}
-                <p><strong>Relevant columns for {{ device_context.name }}:</strong> 
+                <p>Relevant columns for {{ device_context.name }}:
                     {% for column in device_context.columns %}
-                        <code>{{ column }}</code>{% if not loop.last %}, {% endif %}
+                    <code>{{ column }}</code>{% if not loop.last %}, {% endif %}
                     {% endfor %}
                 </p>
-                <p><strong>Event types:</strong> 
+                <p>Event types:
                     {% for event_type in device_context.event_types %}
-                        <code>{{ event_type }}</code>{% if not loop.last %}, {% endif %}
+                    <code>{{ event_type }}</code>{% if not loop.last %}, {% endif %}
                     {% endfor %}
                 </p>
                 {% else %}
-                <p><strong>Columns:</strong> id, device_id, device_type, timestamp, unix_time, event_type, volume_ml, water_status, system_status, received_at, client_ip, temperature, humidity, zone_status, motion_detected</p>
+                <p>Columns: id, device_id, device_type, timestamp, unix_time, event_type, volume_ml, water_status,
+                    system_status, received_at, client_ip, temperature, humidity, zone_status, motion_detected</p>
                 {% endif %}
-                <p><strong>Example queries:</strong></p>
+                <p>Example queries:</p>
                 <ul>
                     {% if device_context and device_context.type == 'water_system' %}
-                    <li><code>SELECT * FROM water_events WHERE device_type = 'water_system' AND event_type = 'AUTO_CYCLE_COMPLETE' LIMIT 10;</code> - Auto pump cycles</li>
-                    <li><code>SELECT DATE(received_at), SUM(volume_ml) FROM water_events WHERE device_type = 'water_system' GROUP BY DATE(received_at);</code> - Daily volume</li>
-                    <li><code>SELECT * FROM water_events WHERE device_type = 'water_system' AND pump_attempts > 1;</code> - Multiple pump attempts</li>
+                    <li><code>SELECT * FROM water_events WHERE device_type = 'water_system' AND event_type = 'AUTO_CYCLE_COMPLETE' LIMIT 10;</code>
+                        - Auto pump cycles</li>
+                    <li><code>SELECT DATE(received_at), SUM(volume_ml) FROM water_events WHERE device_type = 'water_system' GROUP BY DATE(received_at);</code>
+                        - Daily volume</li>
+                    <li><code>SELECT * FROM water_events WHERE device_type = 'water_system' AND pump_attempts > 1;</code>
+                        - Multiple pump attempts</li>
                     {% elif device_context and device_context.type == 'temperature_sensor' %}
-                    <li><code>SELECT * FROM water_events WHERE device_type = 'temperature_sensor' AND temperature IS NOT NULL LIMIT 10;</code> - Temperature readings</li>
-                    <li><code>SELECT AVG(temperature), AVG(humidity) FROM water_events WHERE device_type = 'temperature_sensor' AND DATE(received_at) = DATE('now');</code> - Today's averages</li>
+                    <li><code>SELECT * FROM water_events WHERE device_type = 'temperature_sensor' AND temperature IS NOT NULL LIMIT 10;</code>
+                        - Temperature readings</li>
+                    <li><code>SELECT AVG(temperature), AVG(humidity) FROM water_events WHERE device_type = 'temperature_sensor' AND DATE(received_at) = DATE('now');</code>
+                        - Today's averages</li>
                     {% elif device_context and device_context.type == 'security_system' %}
-                    <li><code>SELECT * FROM water_events WHERE device_type = 'security_system' AND motion_detected = 1 LIMIT 10;</code> - Motion events</li>
-                    <li><code>SELECT zone_status, COUNT(*) FROM water_events WHERE device_type = 'security_system' GROUP BY zone_status;</code> - Zone status summary</li>
+                    <li><code>SELECT * FROM water_events WHERE device_type = 'security_system' AND motion_detected = 1 LIMIT 10;</code>
+                        - Motion events</li>
+                    <li><code>SELECT zone_status, COUNT(*) FROM water_events WHERE device_type = 'security_system' GROUP BY zone_status;</code>
+                        - Zone status summary</li>
                     {% else %}
                     <li><code>SELECT COUNT(*) FROM water_events;</code> - Total events count</li>
-                    <li><code>SELECT device_type, COUNT(*) FROM water_events GROUP BY device_type;</code> - Events by device type</li>
+                    <li><code>SELECT device_type, COUNT(*) FROM water_events GROUP BY device_type;</code> - Events by
+                        device type</li>
                     <li><code>SELECT * FROM water_events WHERE system_status != 'OK';</code> - System issues</li>
                     {% endif %}
                 </ul>
-                <p><strong>Restrictions:</strong></p>
+                <p>Restrictions:/p>
                 <ul>
                     <li>Only SELECT queries allowed</li>
                     <li>Maximum 1000 results</li>
@@ -875,7 +945,7 @@
                     'pump_duration': 'Pump Run Time(s)',
                     'pump_attempts': 'Pump Attempts',
                     'gap1_fail_sum': 'Sensor(ON) Errors',
-                    'gap2_fail_sum': 'Sensor(OFF) Errors', 
+                    'gap2_fail_sum': 'Sensor(OFF) Errors',
                     'water_fail_sum': 'Refill Errors',
                     'last_reset_timestamp': 'Last Reset',
                     'algorithm_data': 'Event Log',
@@ -890,57 +960,16 @@
                     'motion_detected': 'Motion Detected'
                 }
             };
-            
+
             // Check device-specific translations first
             if (currentDeviceType && deviceSpecificTranslations[currentDeviceType] && deviceSpecificTranslations[currentDeviceType][columnName]) {
                 return deviceSpecificTranslations[currentDeviceType][columnName];
             }
-            
+
             // Fall back to base translations
             return baseTranslations[columnName] || columnName;
         }
 
-        // Load available queries for device type
-        // function loadDeviceQueries() {
-        //     if (!currentDeviceType) {
-        //         loadLegacyQueries();
-        //         return;
-        //     }
-        //     loadLegacyQueries();
-
-            // fetch(`/api/available-queries/${currentDeviceType}`)
-            //     .then(response => response.json())
-            //     .then(data => {
-            //         if (data.success) {
-            //             const container = document.getElementById('quickQueriesContainer');
-            //             container.innerHTML = '';
-                        
-            //             Object.entries(data.queries).forEach(([queryId, queryInfo]) => {
-            //                 const btn = document.createElement('button');
-            //                 btn.className = 'quick-btn';
-            //                 btn.textContent = queryInfo.name;
-            //                 btn.title = queryInfo.description;
-            //                 btn.onclick = () => executeDeviceQuery(queryId);
-            //                 container.appendChild(btn);
-            //             });
-            //         } else {
-            //             console.error('Failed to load device queries:', data.error);
-            //             loadLegacyQueries();
-            //         }
-            //     })
-            //     .catch(error => {
-            //         console.error('Error loading device queries:', error);
-            //         loadLegacyQueries();
-            //     });
-        // }
-
-        // ===== TIMEZONE CONVERSION UTILITIES =====
-        /**
-         * Convert unix timestamp to local Polish time
-         * @param {number} unixTime - Unix timestamp (seconds)
-         * @param {boolean} includeSeconds - Include seconds in output
-         * @returns {string} Formatted local time
-         */
         function formatLocalTime(unixTime, includeSeconds = true) {
             if (!unixTime || unixTime === 0) return 'N/A';
 
@@ -1015,11 +1044,11 @@
             currentQueryType = queryType;
             const container = document.getElementById('resultsContainer');
             container.innerHTML = '<div class="loading">Executing query...</div>';
-            
-            const url = currentDeviceType 
+
+            const url = currentDeviceType
                 ? `/api/admin-device-query/${currentDeviceType}/${queryType}`
                 : `/api/admin-quick-query/${queryType}`;
-            
+
             fetch(url)
                 .then(response => {
                     if (response.status === 401) {
@@ -1041,7 +1070,7 @@
                     showAlert(`Network error: ${error.message}`, 'error');
                 });
         }
-  
+
         // Mapowanie wartości na polskie
         function translateCellValue(columnName, value) {
 
@@ -1093,7 +1122,7 @@
                     'false': 'NO'
                 }
             };
-            
+
             if (valueTranslations[columnName] && valueTranslations[columnName][value]) {
                 return valueTranslations[columnName][value];
             }
@@ -1108,10 +1137,10 @@
                     const sessionInfo = document.getElementById('sessionInfo');
                     const loginTime = new Date(data.login_time).toLocaleTimeString();
                     sessionInfo.innerHTML = `
-                        🕒 ${loginTime}<br>
-                        <small>IP: ${data.client_ip}</small>
+                        ${loginTime}<br>
+                        ${data.client_ip}
                     `;
-                    
+
                     // Start session timer
                     startSessionTimer(data.timeout_minutes);
                 })
@@ -1123,7 +1152,7 @@
         function startSessionTimer(timeoutMinutes) {
             const totalMs = timeoutMinutes * 60 * 1000;
             const warningMs = 5 * 60 * 1000; // 5 minutes warning
-            
+
             setTimeout(() => {
                 showSessionWarning();
             }, totalMs - warningMs);
@@ -1132,26 +1161,26 @@
         function showSessionWarning() {
             if (warningShown) return;
             warningShown = true;
-            
+
             const warning = document.getElementById('sessionWarning');
             warning.style.display = 'block';
-            
+
             let timeLeft = 5 * 60; // 5 minutes in seconds
             const warningTimeSpan = document.getElementById('warningTime');
-            
+
             const countdown = setInterval(() => {
                 const minutes = Math.floor(timeLeft / 60);
                 const seconds = timeLeft % 60;
                 warningTimeSpan.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
                 timeLeft--;
-                
+
                 if (timeLeft < 0) {
                     clearInterval(countdown);
                     alert('Session expired. You will be redirected to login page.');
                     window.location.href = '/login';
                 }
             }, 1000);
-            
+
             // Click warning to extend session (make any API call)
             warning.onclick = () => {
                 fetch('/api/session-info')
@@ -1169,10 +1198,10 @@
             const alert = document.createElement('div');
             alert.className = 'alert ' + type;
             alert.textContent = message;
-            
+
             // Insert at top of results container
             resultsContainer.insertBefore(alert, resultsContainer.firstChild);
-            
+
             setTimeout(() => {
                 if (resultsContainer.contains(alert)) {
                     resultsContainer.removeChild(alert);
@@ -1200,13 +1229,13 @@
             }
 
             const preferredColumnOrder = [
-                'id','device_id', 'device_type', 'timestamp', 'event_type',
-                'pump_duration', 'volume_ml', 'pump_attempts',
-                'time_gap_1', 'gap1_fail_sum', 'time_gap_2', 'gap2_fail_sum'
-                , 'water_trigger_time', 'water_fail_sum',
-                  'daily_volume_ml', 'temperature', 'humidity', 'zone_status', 'motion_detected', 'system_status',
-                 'client_ip', 'water_status', 'received_at', 'last_reset_timestamp',
-                , 'unix_time', 'algorithm_data', 
+                'id', 'device_id', 'device_type', 'timestamp', 'event_type',
+                'pump_duration', 'volume_ml', 'daily_volume_ml', 'pump_attempts',
+                'time_gap_1', 'time_gap_2', 'water_trigger_time', 'system_status', 'water_status', 'gap1_fail_sum', 'gap2_fail_sum'
+                , 'water_fail_sum',
+                'temperature', 'humidity', 'zone_status', 'motion_detected',
+                'client_ip', 'received_at', 'last_reset_timestamp',
+                , 'unix_time', 'algorithm_data',
             ];
 
 
@@ -1228,6 +1257,7 @@
                 'received_at': 'cat-general',
                 'pump_duration': 'cat-sensor',
                 'pump_attempts': 'cat-sensor',
+                'daily_volume_ml': 'cat-sensor',
                 'volume_ml': 'cat-sensor',
                 'time_gap_1': 'cat-sensor',
                 'time_gap_2': 'cat-sensor',
@@ -1246,7 +1276,7 @@
             // 4. Buduj HTML tabeli (transponowanej)
             let html = '<div class="table-transposed-container">';
             html += '<table class="results-table-transposed">';
-            
+
             // THEAD: Nagłówki kolumn = numery rekordów
             html += '<thead><tr>';
             html += '<th class="field-header sticky-col">Field Name</th>';
@@ -1281,13 +1311,13 @@
                 html += `<td class="field-name sticky-col ${categoryClass}" title="${fieldName}">
                             ${translateColumnName(fieldName)}
                          </td>`;
-                     
+
                 // Kolejne kolumny: wartości z każdego rekordu
                 orderedData.forEach(record => {
                     const value = record[fieldName];
                     const translatedValue = translateCellValue(fieldName, value);
-                    const displayValue = (translatedValue !== null && translatedValue !== undefined) 
-                        ? translatedValue 
+                    const displayValue = (translatedValue !== null && translatedValue !== undefined)
+                        ? translatedValue
                         : '<span class="null-value">—</span>';
 
                     html += `<td class="data-cell">${displayValue}</td>`;
@@ -1309,12 +1339,12 @@
             enableHorizontalScrollOnWheel();
 
             console.log(`✅ Transposed table: ${orderedColumns.length} fields × ${orderedData.length} records`);
-        }   
+        }
 
         function getEventTypeRowClass(eventType) {
             const eventTypeClasses = {
                 'AUTO_PUMP': 'row-auto-pump',
-                'MANUAL_NORMAL': 'row-manual-normal', 
+                'MANUAL_NORMAL': 'row-manual-normal',
                 'MANUAL_EXTENDED': 'row-manual-extended',
                 'AUTO_CYCLE_COMPLETE': 'row-auto-complete',
                 'STATISTICS_RESET': 'row-stats-reset',
@@ -1342,13 +1372,13 @@
                 showAlert('No query to export', 'error');
                 return;
             }
-        
-            const url = currentDeviceType 
+
+            const url = currentDeviceType
                 ? `/api/quick-export/${currentDeviceType}/${currentQueryType}/${format}`
                 : `/api/quick-export/${currentQueryType}/${format}`;
-                
+
             window.open(url, '_blank');
-        }       
+        }
 
         function executeQuery(query, isQuick = false) {
             if (!query.trim()) {
@@ -1371,37 +1401,37 @@
                 },
                 body: requestData ? JSON.stringify(requestData) : null
             })
-            .then(response => {
-                if (response.status === 401) {
-                    // Session expired
-                    alert('Session expired. Please login again.');
-                    window.location.href = '/login';
-                    return;
-                }
-                return response.json();
-            })
-            .then(data => {
-                if (data && data.success) {
-                    displayResults(data.data);
-                    updateResultsInfo(data.count, data.limited);
-                    
-                    if (data.limited) {
-                        showAlert('Results limited to 1000 rows. Use LIMIT clause for specific ranges.', 'info');
+                .then(response => {
+                    if (response.status === 401) {
+                        // Session expired
+                        alert('Session expired. Please login again.');
+                        window.location.href = '/login';
+                        return;
                     }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data && data.success) {
+                        displayResults(data.data);
+                        updateResultsInfo(data.count, data.limited);
 
-                } else if (data) {
-                    showAlert(`Error: ${data.error}`, 'error');
+                        if (data.limited) {
+                            showAlert('Results limited to 1000 rows. Use LIMIT clause for specific ranges.', 'info');
+                        }
+
+                    } else if (data) {
+                        showAlert(`Error: ${data.error}`, 'error');
+                        document.getElementById('exportSection').style.display = 'none';
+                    }
+                })
+                .catch(error => {
+                    showAlert(`Network error: ${error.message}`, 'error');
                     document.getElementById('exportSection').style.display = 'none';
-                }
-            })
-            .catch(error => {
-                showAlert(`Network error: ${error.message}`, 'error');
-                document.getElementById('exportSection').style.display = 'none';
-            })
-            .finally(() => {
-                executeBtn.disabled = false;
-                executeBtn.textContent = 'Execute Query';
-            });
+                })
+                .finally(() => {
+                    executeBtn.disabled = false;
+                    executeBtn.textContent = 'Execute Query';
+                });
         }
 
         function executeCustomQuery() {
@@ -1429,19 +1459,19 @@
         }
 
         // Load default query on page load
-        document.addEventListener('DOMContentLoaded', function() {
-            
-            const defaultQuery = currentDeviceType 
+        document.addEventListener('DOMContentLoaded', function () {
+
+            const defaultQuery = currentDeviceType
                 ? `SELECT * FROM water_events WHERE device_type = '${currentDeviceType}' ORDER BY received_at DESC LIMIT 20;`
                 : 'SELECT * FROM water_events ORDER BY received_at DESC LIMIT 20;';
-            
+
             document.getElementById('sqlQuery').value = defaultQuery;
             loadSessionInfo();
             loadDeviceQueries();
         });
 
         // Execute query on Ctrl+Enter
-        document.getElementById('sqlQuery').addEventListener('keydown', function(e) {
+        document.getElementById('sqlQuery').addEventListener('keydown', function (e) {
             if (e.ctrlKey && e.key === 'Enter') {
                 executeCustomQuery();
             }
@@ -1458,9 +1488,9 @@
         }, 5 * 60 * 1000); // Every 5 minutes
 
 
-  
 
-            // ============================================
+
+        // ============================================
         // HORIZONTAL SCROLL Z AKUMULACJĄ - Smooth UX
         // ============================================
 
@@ -1503,9 +1533,9 @@
 
             if (firstDataCell) {
                 const computedStyle = window.getComputedStyle(firstDataCell);
-                columnWidth = firstDataCell.offsetWidth + 
-                             parseInt(computedStyle.marginLeft) + 
-                             parseInt(computedStyle.marginRight);
+                columnWidth = firstDataCell.offsetWidth +
+                    parseInt(computedStyle.marginLeft) +
+                    parseInt(computedStyle.marginRight);
             }
 
             // Określ kierunek scrollowania
@@ -1532,9 +1562,9 @@
             // Wykonaj JEDEN płynny scroll o całą zsumowaną wartość
             const targetScroll = container.scrollLeft + accumulatedScroll;
 
-            container.scrollTo({ 
-                left: targetScroll, 
-                behavior: 'smooth' 
+            container.scrollTo({
+                left: targetScroll,
+                behavior: 'smooth'
             });
 
             // Resetuj akumulator
@@ -1554,19 +1584,20 @@
 
             // Tylko snap jeśli różnica jest znacząca (> 5px)
             if (Math.abs(currentScroll - nearestColumn) > 5) {
-                container.scrollTo({ 
-                    left: nearestColumn, 
-                    behavior: 'smooth' 
-                });        
+                container.scrollTo({
+                    left: nearestColumn,
+                    behavior: 'smooth'
+                });
             }
         }
 
         // Wywołaj po załadowaniu strony
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             enableHorizontalScrollOnWheel();
         });
 
-   
+
     </script>
 </body>
+
 </html>
