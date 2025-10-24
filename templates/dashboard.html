@@ -24,7 +24,7 @@
       max-width: 1200px;
       margin: 0 auto;
       background: white;
-      border-radius: 15px;
+      border-radius: 6px;
       box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
       overflow: hidden;
     }
@@ -64,13 +64,19 @@
 
     .logout-btn {
       background: #e74c3c;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      width: 140px;
+      height: 40px;
       color: white;
       border: none;
-      padding: 10px 20px;
+      /* padding: 8px 16px; */
       border-radius: 6px;
       cursor: pointer;
       font-weight: bold;
       transition: all 0.3s;
+      text-decoration: none;
     }
 
     .logout-btn:hover {
@@ -94,7 +100,10 @@
     .device-card {
       background: white;
       display: flex;
-      border-radius: 12px;
+      flex-direction: column;
+      justify-content: space-between;
+      flex-direction: row;
+      border-radius: 6px;
       border: 2px solid #ecf0f1;
       padding: 20px;
       cursor: pointer;
@@ -118,11 +127,27 @@
       background: var(--device-color);
     }
 
-    .device-header {
+    .device-card-header {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .device-card-title {
+      display: flex;
+      align-items: center;
+      margin-right: 30px;
+    }
+
+    .device-card-subtitle {
+      display: flex;
+      align-items: center;
+    }
+
+    /* .device-header {
       display: flex;
       align-items: center;
       margin-bottom: 15px;
-    }
+    } */
 
     .device-icon {
       font-size: 32px;
@@ -143,22 +168,32 @@
     .device-stats {
       display: flex;
       justify-content: space-between;
-      margin-top: 15px;
+      /* margin-top: 15px; */
     }
 
     .stat {
-      text-align: center;
+      justify-content: flex-start;
+      align-items: center;
+      display: flex;
+      flex-direction: row;
+      min-width: 140px;
     }
 
     .stat-value {
+      margin-left: 6%;
+      margin-right: 30px;
       font-size: 18px;
-      font-weight: bold;
+      white-space: nowrap;
+      /* font-weight: bold; */
       color: #2c3e50;
     }
 
     .stat-label {
-      font-size: 12px;
-      color: #7f8c8d;
+      font-size: 18px;
+      white-space: nowrap;
+
+      /* font-weight: bold; */
+      color: #2c3e50;
     }
 
     .recent-activity {
@@ -180,26 +215,55 @@
     .activity-info {
       display: flex;
       align-items: center;
+      color: #5e6263;
+      font-size: 18px;
     }
 
     .activity-device {
+
       background: #ecf0f1;
       padding: 4px 8px;
       border-radius: 4px;
-      font-size: 12px;
       margin-right: 10px;
     }
 
+    /* .activity-device span{
+        font-size: 68px;
+        color: #7f8c8d;
+
+
+      } */
+
     .activity-time {
       color: #7f8c8d;
-      font-size: 12px;
+      font-size: 18px;
     }
 
-    @media (max-width: 1200px) {}
+    @media (max-width: 1200px) {
+      .device-card {
+        flex-direction: column;
+      }
+
+      .device-stats {
+        justify-content: center;
+      }
+
+      .device-card-title {
+        justify-content: center;
+        margin-bottom: 16px;
+      }
+
+      .device-card-subtitle {
+        display: none;
+      }
+    }
 
     @media (max-width: 768px) {
       body {
-        padding: 5px;
+        height: 100dvh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
       }
 
       .header {
@@ -218,12 +282,31 @@
       .device-header {
         justify-content: center;
         text-align: center;
-
       }
 
-      .device-info>p {
+      .device-stats> :first-child {
         display: none;
+      }
 
+      .device-stats> :nth-child(2) {
+        display: none;
+      }
+
+      .stat-value {
+        margin-right: 10px;
+        font-size: 16px;
+      }
+
+      .stat-label {
+        font-size: 16px;
+      }
+
+      .stat {
+        min-width: 100px;
+      }
+
+      .recent-activity {
+        display: none;
       }
     }
   </style>
@@ -249,31 +332,30 @@
       {% for device in device_types %}
       <div class="device-card" style="--device-color: {{ device.color }}"
         onclick="openDeviceAdmin('{{ device.type }}')">
-        <div class="device-header">
+        <div class="device-card-header">
           <!-- <div class="device-icon">{{ device.icon }}</div> -->
-          <div class="device-title">
+          <div class="device-card-title">
             <h2>{{ device.name }}</h2>
           </div>
-          <div class="device-subtitle">
+          <div class="device-card-subtitle">
             <p>{{ device.description }}</p>
           </div>
-
         </div>
         <div class="device-stats">
           <div class="stat">
-            <div class="stat-value">{{ device.device_count }}</div>
             <div class="stat-label">Devices</div>
+            <div class="stat-value">{{ device.device_count }}</div>
           </div>
           <div class="stat">
-            <div class="stat-value">{{ device.event_count }}</div>
             <div class="stat-label">Events</div>
+            <div class="stat-value">{{ device.event_count }}</div>
           </div>
           <div class="stat">
+            <div class="stat-label">Last Activity</div>
             <div class="stat-value">
               {% if device.last_activity %} {{ device.last_activity[:10] }} {%
               else %} Never {% endif %}
             </div>
-            <div class="stat-label">Last Activity</div>
           </div>
         </div>
       </div>
