@@ -1,11 +1,5 @@
 #!/usr/bin/env python3
-"""
-ESP32-C3 Water System VPS Logger
-Odbiera i przechowuje zdarzenia z systemu podlewania
-+ Admin Panel do zapytań SQL
-+ Nginx Reverse Proxy Support
-+ Environment Variables Configuration
-"""
+
 
 import os
 import sys
@@ -36,7 +30,7 @@ from validators import validate_event_data, validate_sql_query
 from utils.export import export_to_csv, export_to_json, generate_filename
 from auth import (
     cleanup_expired_sessions,
-    is_account_locked,
+    get_failed_attempts_info,
     record_failed_attempt,
     reset_failed_attempts,
     create_session,
@@ -66,10 +60,10 @@ except ImportError:
 if not Config.verify_required_vars():
     sys.exit(1)
 
-# Session storage (in production użyj Redis/Database)
-active_sessions = {}
-failed_attempts = {}
-locked_accounts = {}
+# # Session storage (in production użyj Redis/Database)
+# active_sessions = {}
+# failed_attempts = {}
+# locked_accounts = {}
 
 app = Flask(__name__)
 app.secret_key = Config.SECRET_KEY or secrets.token_hex(32)
@@ -125,7 +119,7 @@ init_database_path(Config.DATABASE_PATH)
 @require_auth
 def receive_water_event():
     """
-    Receive and store water system events from ESP32 devices.
+    Receive and store events from IOT.
     
     Validates event data, determines device type, and stores in database.
     """
@@ -320,55 +314,14 @@ def get_stats():
         return jsonify({'error': 'Internal server error'}), 500
 
 @app.route('/login')
+@limiter.limit("15 per 15 minutes")
 def login_page():
     """Strona logowania"""
     # Jeśli już zalogowany, przekieruj do admin
     if validate_session():
-        return redirect(url_for('admin_dashboard'))
+        return redirect(url_for('device_dashboard'))
     
     return render_template('login.html')
-
-@app.route('/login', methods=['POST'])
-@limiter.limit("10 per hour") 
-def login_submit():
-    """Obsługa logowania"""
-    client_ip = get_real_ip()
-    
-    # Sprawdź czy konto jest zablokowane
-    if is_account_locked(client_ip):
-        flash('Account temporarily locked due to too many failed attempts. Try again later.', 'error')
-        logging.warning(f"Login attempt from locked IP: {client_ip}")
-        return render_template('login.html'), 429
-    
-    password = request.form.get('password', '')
-    
-    # if password == Config.ADMIN_PASSWORD:
-    if secure_compare(password, Config.ADMIN_PASSWORD):  # ✅ ZMIEŃ NA TO
-        # Udane logowanie
-        reset_failed_attempts(client_ip)
-        create_session(client_ip)
-        logging.info(f"Successful admin login from IP: {client_ip}")
-        return redirect(url_for('admin_dashboard'))
-    else:
-        # Nieudane logowanie
-        is_locked = record_failed_attempt(client_ip)
-        if is_locked:
-            flash(f'Too many failed attempts. Account locked for {Config.LOCKOUT_DURATION_HOURS} hour(s).', 'error')
-        else:
-            remaining = Config.MAX_FAILED_ATTEMPTS - failed_attempts[client_ip]['count']
-            flash(f'Invalid password. {remaining} attempts remaining.', 'error')
-        
-        logging.warning(f"Failed admin login from IP: {client_ip}")
-        return render_template('login.html'), 401
-
-@app.route('/logout', methods=['GET', 'POST'])
-def logout():
-    """Wylogowanie"""
-    client_ip = get_real_ip()
-    destroy_session()
-    logging.info(f"Admin logout from IP: {client_ip}")
-    flash('You have been logged out successfully.', 'info')
-    return redirect(url_for('login_page'))
 
 @app.route('/')
 @app.route('/admin')  
@@ -376,6 +329,94 @@ def logout():
 def admin_dashboard():
     """Redirect to dashboard for device type selection"""
     return redirect(url_for('device_dashboard'))
+
+@app.route('/login', methods=['POST'])
+@limiter.limit("15 per 15 minutes")
+def login_submit():
+    """
+    Obsługa logowania z centralizowaną obsługą błędów.
+    Zawsze zwraca odpowiedź HTTP (nie rzuca wyjątków).
+    """
+    client_ip = get_real_ip()
+    
+    try:
+        # === KROK 1: Sprawdź czy konto jest zablokowane ===
+        attempt_info = get_failed_attempts_info(client_ip)
+        
+        if attempt_info.get('is_locked'):
+            # Konto zablokowane
+            time_left_seconds = attempt_info.get('time_until_unlock', 0)
+            time_left_minutes = max(1, time_left_seconds // 60)
+            
+            flash(
+                f'Account temporarily locked due to too many failed attempts. '
+                f'Try again in {time_left_minutes} minutes.',
+                'error'
+            )
+            logging.warning(
+                f"🔒 Blocked login attempt from locked IP: {client_ip} "
+                f"(unlocks in {time_left_minutes} minutes)"
+            )
+            return render_template('login.html'), 429
+        
+        # === KROK 2: Walidacja hasła ===
+        password = request.form.get('password', '')
+        
+        if not password:
+            flash('Password is required.', 'error')
+            return render_template('login.html'), 400
+        
+        if secure_compare(password, Config.ADMIN_PASSWORD):
+            # ✅ UDANE LOGOWANIE
+            reset_failed_attempts(client_ip)
+            create_session(client_ip)
+            logging.info(f"✅ Successful admin login from IP: {client_ip}")
+            return redirect(url_for('device_dashboard'))
+        
+        # === KROK 3: Nieudane logowanie - zapisz próbę ===
+        result = record_failed_attempt(client_ip)
+        
+        # Buduj komunikat na podstawie zwróconych danych
+        if result.get('is_locked'):
+            # Właśnie zablokowaliśmy konto (to była ostatnia próba)
+            flash(
+                f'Too many failed attempts. Account locked for '
+                f'{result["lockout_duration_hours"]} hour(s).',
+                'error'
+            )
+            logging.warning(
+                f"❌ Failed admin login from IP: {client_ip} "
+                f"(attempt {result['attempt_count']}/{Config.MAX_FAILED_ATTEMPTS}) - ACCOUNT LOCKED"
+            )
+            return render_template('login.html'), 429
+        else:
+            # Jeszcze nie zablokowane - pokaż ile prób zostało
+            remaining = result.get('remaining_attempts', 0)
+            flash(f'Invalid password. {remaining} attempts remaining.', 'error')
+            logging.warning(
+                f"❌ Failed admin login from IP: {client_ip} "
+                f"(attempt {result['attempt_count']}/{Config.MAX_FAILED_ATTEMPTS}, {remaining} remaining)"
+            )
+            return render_template('login.html'), 401
+    
+    except Exception as e:
+        # === CENTRALIZOWANA OBSŁUGA BŁĘDÓW ===
+        # Nigdy nie pozwól na 500 error - zawsze zwróć odpowiedź
+        logging.error(f"Login error for IP {client_ip}: {e}", exc_info=True)
+        flash(
+            'An error occurred during login. Please try again or contact administrator.',
+            'error'
+        )
+        return render_template('login.html'), 500
+
+@app.route('/logout', methods=['GET', 'POST'])
+def logout():
+    """Wylogowanie użytkownika"""
+    client_ip = get_real_ip()
+    destroy_session()
+    logging.info(f"Admin logout from IP: {client_ip}")
+    flash('You have been logged out successfully.', 'info')
+    return redirect(url_for('login_page'))
 
      
 @app.route('/dashboard')
@@ -739,7 +780,7 @@ if __name__ == '__main__':
     # Inicjalizuj bazę danych przy starcie
     init_database()
     
-    logging.info("ESP32-C3 Water System VPS Logger started (Nginx Mode)")
+    logging.info("IOT VPS Logger started (Nginx Mode)")
     logging.info(f"Database: {Config.DATABASE_PATH}")
     # logging.info(f"Log file: {LOG_PATH}")
     logging.info(f"Session timeout: {Config.SESSION_TIMEOUT_MINUTES} minutes")

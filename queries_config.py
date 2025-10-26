@@ -258,7 +258,7 @@ def get_query_info(query_type, device_type=None):
 
 # Legacy support for existing QUICK_QUERIES
 QUICK_QUERIES = BASE_QUERIES.copy()
-# Add water system specific queries for backwards compatibility
+
 if 'water_system' in DEVICE_SPECIFIC_QUERIES:
     QUICK_QUERIES.update(DEVICE_SPECIFIC_QUERIES['water_system'])
 

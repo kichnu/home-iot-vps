@@ -111,8 +111,7 @@ def is_account_locked(client_ip: str) -> bool:
         logging.error(f"Error checking account lock: {e}")
         return False
 
-
-def record_failed_attempt(client_ip: str) -> bool:
+def record_failed_attempt(client_ip: str) -> dict:
     """
     Record failed login attempt and lock account if threshold exceeded.
     
@@ -120,12 +119,14 @@ def record_failed_attempt(client_ip: str) -> bool:
         client_ip: Client IP address
         
     Returns:
-        True if account was locked, False otherwise
+        Dictionary with updated attempt information (same format as get_failed_attempts_info)
         
     Example:
-        >>> is_locked = record_failed_attempt(client_ip)
-        >>> if is_locked:
-        >>>     flash(f'Account locked for {LOCKOUT_DURATION_HOURS} hours')
+        >>> result = record_failed_attempt(client_ip)
+        >>> if result['is_locked']:
+        >>>     flash(f"Account locked for {result['lockout_duration_hours']} hours")
+        >>> else:
+        >>>     flash(f"{result['remaining_attempts']} attempts remaining")
     """
     try:
         with get_db_connection() as conn:
@@ -155,9 +156,17 @@ def record_failed_attempt(client_ip: str) -> bool:
                     
                     logging.warning(
                         f"🔒 Account locked for IP {client_ip} after "
-                        f"{Config.MAX_FAILED_ATTEMPTS} failed attempts"
+                        f"{Config.MAX_FAILED_ATTEMPTS} failed attempts (unlocks in {Config.LOCKOUT_DURATION_HOURS}h)"
                     )
-                    return True
+                    
+                    return {
+                        'attempt_count': new_count,
+                        'is_locked': True,
+                        'locked_until': lockout_until,
+                        'remaining_attempts': 0,
+                        'lockout_duration_hours': Config.LOCKOUT_DURATION_HOURS,
+                        'time_until_unlock': Config.LOCKOUT_DURATION_HOURS * 3600
+                    }
                 else:
                     # Increment counter without locking
                     cursor.execute('''
@@ -165,6 +174,18 @@ def record_failed_attempt(client_ip: str) -> bool:
                         SET attempt_count = ?, last_attempt = ?
                         WHERE client_ip = ?
                     ''', (new_count, current_time, client_ip))
+                    
+                    remaining = Config.MAX_FAILED_ATTEMPTS - new_count
+                    logging.info(f"Login attempt {new_count}/{Config.MAX_FAILED_ATTEMPTS} from IP: {client_ip} ({remaining} remaining)")
+                    
+                    return {
+                        'attempt_count': new_count,
+                        'is_locked': False,
+                        'locked_until': None,
+                        'remaining_attempts': remaining,
+                        'lockout_duration_hours': Config.LOCKOUT_DURATION_HOURS,
+                        'time_until_unlock': 0
+                    }
             else:
                 # First failed attempt
                 cursor.execute('''
@@ -172,12 +193,31 @@ def record_failed_attempt(client_ip: str) -> bool:
                     (client_ip, attempt_count, last_attempt)
                     VALUES (?, 1, ?)
                 ''', (client_ip, current_time))
-            
-            return False
+                
+                remaining = Config.MAX_FAILED_ATTEMPTS - 1
+                logging.info(f"First failed login attempt from IP: {client_ip} ({remaining} remaining)")
+                
+                return {
+                    'attempt_count': 1,
+                    'is_locked': False,
+                    'locked_until': None,
+                    'remaining_attempts': remaining,
+                    'lockout_duration_hours': Config.LOCKOUT_DURATION_HOURS,
+                    'time_until_unlock': 0
+                }
             
     except Exception as e:
         logging.error(f"Error recording failed attempt: {e}")
-        return False
+        # STRICT: On error, return locked state
+        return {
+            'attempt_count': 999,
+            'is_locked': True,
+            'locked_until': int(time.time()) + 3600,
+            'remaining_attempts': 0,
+            'lockout_duration_hours': Config.LOCKOUT_DURATION_HOURS,
+            'time_until_unlock': 3600,
+            'error': str(e)
+        }
 
 
 def reset_failed_attempts(client_ip: str) -> None:
@@ -201,6 +241,84 @@ def reset_failed_attempts(client_ip: str) -> None:
             
     except Exception as e:
         logging.error(f"Error resetting failed attempts: {e}")
+
+
+def get_failed_attempts_info(client_ip: str) -> dict:
+    """
+    Get comprehensive failed login attempts information for IP.
+    
+    Args:
+        client_ip: Client IP address
+        
+    Returns:
+        Dictionary with keys:
+        - attempt_count: Number of failed attempts
+        - is_locked: Boolean indicating if account is locked
+        - locked_until: Unix timestamp when lock expires (or None)
+        - remaining_attempts: Attempts left before lockout
+        - lockout_duration_hours: Hours of lockout period
+        
+    Example:
+        >>> info = get_failed_attempts_info(client_ip)
+        >>> if info['is_locked']:
+        >>>     flash(f"Account locked. Try again after {info['time_until_unlock']} minutes")
+        >>> else:
+        >>>     flash(f"Invalid password. {info['remaining_attempts']} attempts remaining")
+    """
+    cleanup_expired_sessions()
+    
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            current_time = int(time.time())
+            
+            cursor.execute('''
+                SELECT attempt_count, locked_until 
+                FROM failed_login_attempts 
+                WHERE client_ip = ?
+            ''', (client_ip,))
+            
+            result = cursor.fetchone()
+            
+            if not result:
+                # No failed attempts recorded
+                return {
+                    'attempt_count': 0,
+                    'is_locked': False,
+                    'locked_until': None,
+                    'remaining_attempts': Config.MAX_FAILED_ATTEMPTS,
+                    'lockout_duration_hours': Config.LOCKOUT_DURATION_HOURS
+                }
+            
+            attempt_count, locked_until = result
+            
+            # Check if account is currently locked
+            is_locked = locked_until is not None and locked_until > current_time
+            
+            # Calculate remaining attempts
+            remaining_attempts = max(0, Config.MAX_FAILED_ATTEMPTS - attempt_count)
+            
+            return {
+                'attempt_count': attempt_count,
+                'is_locked': is_locked,
+                'locked_until': locked_until,
+                'remaining_attempts': remaining_attempts,
+                'lockout_duration_hours': Config.LOCKOUT_DURATION_HOURS,
+                'time_until_unlock': max(0, locked_until - current_time) if locked_until else 0
+            }
+            
+    except Exception as e:
+        logging.error(f"Error getting failed attempts info: {e}")
+        # STRICT: On database error, treat as locked for security
+        return {
+            'attempt_count': 999,
+            'is_locked': True,
+            'locked_until': int(time.time()) + 3600,
+            'remaining_attempts': 0,
+            'lockout_duration_hours': Config.LOCKOUT_DURATION_HOURS,
+            'time_until_unlock': 3600,
+            'error': str(e)
+        }
 
 
 def create_session(client_ip: str) -> Optional[str]:
