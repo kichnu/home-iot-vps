@@ -758,6 +758,29 @@ def health_check():
         'locked_accounts': locked_accounts_count
     }), 200
 
+
+@app.route('/api/device-health/<device_type>')
+@require_admin_auth
+def device_health_check(device_type):
+    """Check if IoT device is reachable through WireGuard"""
+    from utils.health_check import check_device_health
+    from device_config import DEVICE_NETWORK_CONFIG
+    
+    if device_type not in DEVICE_NETWORK_CONFIG:
+        return jsonify({'error': f'Unknown device type: {device_type}'}), 404
+    
+    health = check_device_health(device_type)
+    
+    return jsonify({
+        'success': True,
+        'device_type': device_type,
+        'online': health['online'],
+        'latency_ms': health.get('latency_ms'),
+        'cached': health.get('cached', False)
+    }), 200
+
+
+
 @app.errorhandler(404)
 def not_found(error):
     return jsonify({'error': 'Endpoint not found'}), 404

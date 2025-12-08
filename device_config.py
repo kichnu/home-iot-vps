@@ -79,3 +79,52 @@ def get_device_columns(device_type):
     """Get relevant columns for device type"""
     config = get_device_config(device_type)
     return config.get('columns', [])
+
+
+# ============================================
+# NETWORK CONFIGURATION FOR DEVICE PROXY
+# Used by health check and dashboard
+# ============================================
+
+DEVICE_NETWORK_CONFIG = {
+    'water_system': {
+        'lan_ip': '192.168.10.2',
+        'lan_port': 80,
+        'proxy_path': '/device/top_off_water',
+        'health_endpoint': '/api/status',
+        'has_local_dashboard': True,
+        'timeout_seconds': 5
+    },
+    # Future devices can be added here:
+    # 'temperature_sensor': {
+    #     'lan_ip': '192.168.10.3',
+    #     'lan_port': 80,
+    #     'proxy_path': '/device/temp_sensor',
+    #     'health_endpoint': '/api/status',
+    #     'has_local_dashboard': True,
+    #     'timeout_seconds': 3
+    # },
+}
+
+
+def get_device_network_config(device_type: str) -> dict:
+    """Get network configuration for device type"""
+    return DEVICE_NETWORK_CONFIG.get(device_type, {})
+
+
+def get_all_devices_with_dashboard() -> list:
+    """Get all devices that have local dashboards"""
+    devices = []
+    for device_type, network_config in DEVICE_NETWORK_CONFIG.items():
+        if network_config.get('has_local_dashboard'):
+            device_config = get_device_config(device_type)
+            devices.append({
+                'type': device_type,
+                'name': device_config.get('name', device_type),
+                'icon': device_config.get('icon', '📱'),
+                'color': device_config.get('color', '#95a5a6'),
+                'description': device_config.get('description', ''),
+                'proxy_path': network_config.get('proxy_path', ''),
+                'has_local_dashboard': True
+            })
+    return devices
