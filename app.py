@@ -719,6 +719,19 @@ def admin_export_data(format):
         return export_to_json(result, filename)
     else:
         return jsonify({'error': 'Unsupported format. Use csv or json'}), 400
+    
+@app.route('/api/auth-check')
+@limiter.exempt
+def auth_check():
+    """
+    Internal endpoint for Nginx auth_request.
+    Returns 200 if session valid, 401 if not.
+    Used to protect /device/* proxy routes.
+    """
+    if validate_session():
+        return '', 200
+    return '', 401    
+
 
 @app.route('/health', methods=['GET'])
 @limiter.limit("30 per minute")
