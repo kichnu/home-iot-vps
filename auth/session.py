@@ -70,47 +70,6 @@ def cleanup_expired_sessions() -> None:
         logging.error(f"Session cleanup error: {e}")
 
 
-def is_account_locked(client_ip: str) -> bool:
-    """
-    Check if account is locked due to failed login attempts.
-    
-    Args:
-        client_ip: Client IP address to check
-        
-    Returns:
-        True if account is locked, False otherwise
-        
-    Example:
-        >>> if is_account_locked(client_ip):
-        >>>     return "Account locked", 429
-    """
-    cleanup_expired_sessions()
-    
-    try:
-        with get_db_connection() as conn:
-            cursor = conn.cursor()
-            current_time = int(time.time())
-            
-            cursor.execute('''
-                SELECT locked_until 
-                FROM failed_login_attempts 
-                WHERE client_ip = ? AND locked_until IS NOT NULL
-            ''', (client_ip,))
-            
-            result = cursor.fetchone()
-            
-            if result and result[0]:
-                if result[0] > current_time:
-                    return True
-                else:
-                    return False
-            
-            return False
-            
-    except Exception as e:
-        logging.error(f"Error checking account lock: {e}")
-        return False
-
 def record_failed_attempt(client_ip: str) -> dict:
     """
     Record failed login attempt and lock account if threshold exceeded.

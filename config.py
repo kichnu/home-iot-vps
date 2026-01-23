@@ -69,6 +69,10 @@ Set in .env file or system environment:
             print(error_msg)
             return False
 
+        # Warn if SECRET_KEY not set (sessions will be invalidated on restart)
+        if not cls.SECRET_KEY:
+            print("WARNING: WATER_SYSTEM_SECRET_KEY not set - sessions will be invalidated on restart")
+
         return True
 
     @classmethod

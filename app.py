@@ -12,9 +12,11 @@ import logging
 from datetime import datetime
 import secrets
 from flask_limiter import Limiter
+from flask_wtf.csrf import CSRFProtect
 from config import Config
 from utils.security import secure_compare, get_real_ip
 from database import get_db_connection, init_database_path, init_database
+from device_config import DEVICE_NETWORK_CONFIG, get_device_config, get_device_network_config
 from auth import (
     cleanup_expired_sessions,
     get_failed_attempts_info,
@@ -42,6 +44,9 @@ if not Config.verify_required_vars():
 app = Flask(__name__)
 app.secret_key = Config.SECRET_KEY or secrets.token_hex(32)
 app.permanent_session_lifetime = Config.SESSION_PERMANENT_LIFETIME
+
+# Initialize CSRF protection
+csrf = CSRFProtect(app)
 
 app.config.update(
     TEMPLATES_AUTO_RELOAD=Config.TEMPLATES_AUTO_RELOAD,
@@ -82,21 +87,37 @@ logging.basicConfig(
 Config.log_startup_info(logging)
 init_database_path(Config.DATABASE_PATH)
 
+
+# ============================================
+# SECURITY HEADERS
+# ============================================
+
+@app.after_request
+def add_security_headers(response):
+    """Add security headers to all responses"""
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['X-Frame-Options'] = 'DENY'
+    response.headers['X-XSS-Protection'] = '1; mode=block'
+    response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+    response.headers['Content-Security-Policy'] = "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'"
+    return response
+
+
 # ============================================
 # AUTHENTICATION ROUTES
 # ============================================
 
 @app.route('/login')
-@limiter.limit("15 per 15 minutes")
+@limiter.limit("30 per 15 minutes")
 def login_page():
-    """Login page"""
+    """Login page (GET) - higher rate limit"""
     if validate_session():
         return redirect(url_for('device_dashboard'))
     return render_template('login.html')
 
 
 @app.route('/login', methods=['POST'])
-@limiter.limit("15 per 15 minutes")
+@limiter.limit("10 per 15 minutes")
 def login_submit():
     """Handle login with centralized error handling."""
     client_ip = get_real_ip()
@@ -195,8 +216,6 @@ def device_dashboard():
     client_ip = get_real_ip()
 
     try:
-        from device_config import DEVICE_NETWORK_CONFIG, get_device_config, get_device_network_config
-
         # Build device list from network config (devices with dashboards)
         discovered_types = []
         for device_type, network_config in DEVICE_NETWORK_CONFIG.items():
@@ -258,7 +277,6 @@ def session_info():
 def device_health_check(device_type):
     """Check if IoT device is reachable through WireGuard"""
     from utils.health_check import check_device_health
-    from device_config import DEVICE_NETWORK_CONFIG
 
     if device_type not in DEVICE_NETWORK_CONFIG:
         return jsonify({'error': f'Unknown device type: {device_type}'}), 404
@@ -279,33 +297,21 @@ def device_health_check(device_type):
 def health_check():
     """Application health check endpoint"""
     cleanup_expired_sessions()
+
+    db_ok = False
     try:
         with get_db_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute('SELECT COUNT(*) FROM admin_sessions')
-            active_sessions_count = cursor.fetchone()[0]
-
-            current_time = int(time.time())
-            cursor.execute('''
-                SELECT COUNT(*) FROM failed_login_attempts
-                WHERE locked_until IS NOT NULL AND locked_until > ?
-            ''', (current_time,))
-            locked_accounts_count = cursor.fetchone()[0]
-
+            cursor.execute('SELECT 1')
+            db_ok = True
     except Exception as e:
         logging.error(f"Health check DB error: {e}")
-        active_sessions_count = 0
-        locked_accounts_count = 0
 
     return jsonify({
         'status': 'healthy',
         'timestamp': datetime.now().isoformat(),
-        'database': 'connected' if os.path.exists(Config.DATABASE_PATH) else 'missing',
-        'nginx_mode': Config.ENABLE_NGINX_MODE,
-        'admin_port': Config.ADMIN_PORT,
-        'session_management': 'database',
-        'active_sessions': active_sessions_count,
-        'locked_accounts': locked_accounts_count
+        'database': 'ok' if db_ok else 'error',
+        'nginx_mode': Config.ENABLE_NGINX_MODE
     }), 200
 
 
@@ -346,6 +352,5 @@ if __name__ == '__main__':
     logging.info(f"Nginx reverse proxy mode: {Config.ENABLE_NGINX_MODE}")
 
     logging.info(f"Starting server on http://0.0.0.0:{Config.ADMIN_PORT}")
-    logging.info("External access via Nginx: https://app.krzysztoforlinski.pl/")
 
     run_admin_server()
