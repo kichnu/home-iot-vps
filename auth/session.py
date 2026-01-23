@@ -207,16 +207,17 @@ def record_failed_attempt(client_ip: str) -> dict:
                 }
             
     except Exception as e:
-        logging.error(f"Error recording failed attempt: {e}")
-        # STRICT: On error, return locked state
+        logging.critical(f"DATABASE ERROR in record_failed_attempt: {e}")
+        # FAIL-OPEN: don't block user on DB error (DoS vulnerability)
+        # The attempt won't be recorded, but user can still try to login
         return {
-            'attempt_count': 999,
-            'is_locked': True,
-            'locked_until': int(time.time()) + 3600,
-            'remaining_attempts': 0,
+            'attempt_count': 0,
+            'is_locked': False,
+            'locked_until': None,
+            'remaining_attempts': Config.MAX_FAILED_ATTEMPTS,
             'lockout_duration_hours': Config.LOCKOUT_DURATION_HOURS,
-            'time_until_unlock': 3600,
-            'error': str(e)
+            'time_until_unlock': 0,
+            'db_error': True
         }
 
 
@@ -308,16 +309,17 @@ def get_failed_attempts_info(client_ip: str) -> dict:
             }
             
     except Exception as e:
-        logging.error(f"Error getting failed attempts info: {e}")
-        # STRICT: On database error, treat as locked for security
+        logging.critical(f"DATABASE ERROR in get_failed_attempts_info: {e}")
+        # FAIL-OPEN for reads: allow login attempt, but log critical error
+        # Blocking users on DB error = Denial of Service vulnerability
         return {
-            'attempt_count': 999,
-            'is_locked': True,
-            'locked_until': int(time.time()) + 3600,
-            'remaining_attempts': 0,
+            'attempt_count': 0,
+            'is_locked': False,
+            'locked_until': None,
+            'remaining_attempts': Config.MAX_FAILED_ATTEMPTS,
             'lockout_duration_hours': Config.LOCKOUT_DURATION_HOURS,
-            'time_until_unlock': 3600,
-            'error': str(e)
+            'time_until_unlock': 0,
+            'db_error': True
         }
 
 

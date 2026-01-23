@@ -1,6 +1,5 @@
-
 """
-Authentication and session management for Home IoT Platform
+Authentication and session management for IoT Gateway
 """
 
 from .session import (
@@ -12,7 +11,7 @@ from .session import (
     validate_session,
     destroy_session
 )
-from .decorators import require_auth, require_admin_auth
+from .decorators import require_admin_auth
 
 __all__ = [
     'cleanup_expired_sessions',
@@ -22,6 +21,5 @@ __all__ = [
     'create_session',
     'validate_session',
     'destroy_session',
-    'require_auth',
     'require_admin_auth'
 ]
