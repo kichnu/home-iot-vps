@@ -48,6 +48,9 @@ app.permanent_session_lifetime = Config.SESSION_PERMANENT_LIFETIME
 # Initialize CSRF protection
 csrf = CSRFProtect(app)
 
+# Exempt API routes from CSRF (they use session auth, not form submission)
+# Note: logout uses @csrf.exempt decorator directly
+
 app.config.update(
     TEMPLATES_AUTO_RELOAD=Config.TEMPLATES_AUTO_RELOAD,
     SESSION_COOKIE_HTTPONLY=Config.SESSION_COOKIE_HTTPONLY,
@@ -99,7 +102,7 @@ def add_security_headers(response):
     response.headers['X-Frame-Options'] = 'DENY'
     response.headers['X-XSS-Protection'] = '1; mode=block'
     response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
-    response.headers['Content-Security-Policy'] = "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'"
+    response.headers['Content-Security-Policy'] = "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self'"
     return response
 
 
@@ -188,6 +191,7 @@ def login_submit():
 
 
 @app.route('/logout', methods=['GET', 'POST'])
+@csrf.exempt
 def logout():
     """User logout"""
     client_ip = get_real_ip()

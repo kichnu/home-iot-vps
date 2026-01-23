@@ -1,454 +1,778 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>🏠 IoT Device Dashboard</title>
-  <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      min-height: 100vh;
-      padding: 20px;
-    }
-
-    .container {
-      max-width: 1000px;
-      margin: 0 auto;
-      background: white;
-      border-radius: 16px;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-      overflow: hidden;
-    }
-
-    .header {
-      background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
-      color: white;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 20px 30px;
-    }
-
-    .header h1 {
-      font-size: 24px;
-    }
-
-    .header .subtitle {
-      opacity: 0.9;
-      font-size: 14px;
-      margin-top: 4px;
-    }
-
-    .logout-btn {
-      background: #e74c3c;
-      color: white;
-      border: none;
-      padding: 10px 20px;
-      border-radius: 8px;
-      cursor: pointer;
-      font-weight: bold;
-      transition: all 0.3s;
-    }
-
-    .logout-btn:hover {
-      background: #c0392b;
-      transform: translateY(-2px);
-    }
-
-    .content {
-      padding: 30px;
-    }
-
-    .devices-grid {
-      display: grid;
-      gap: 24px;
-    }
-
-    .device-card {
-      background: white;
-      border-radius: 12px;
-      border: 2px solid #ecf0f1;
-      padding: 24px;
-      position: relative;
-      overflow: hidden;
-      transition: all 0.3s;
-    }
-
-    .device-card:hover {
-      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
-    }
-
-    .device-card::before {
-      content: "";
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      height: 4px;
-      background: var(--device-color);
-    }
-
-    .device-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      margin-bottom: 20px;
-    }
-
-    .device-info h2 {
-      color: #2c3e50;
-      font-size: 22px;
-      margin-bottom: 4px;
-    }
-
-    .device-info p {
-      color: #7f8c8d;
-      font-size: 14px;
-    }
-
-    .device-status {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 6px 12px;
-      border-radius: 20px;
-      font-size: 14px;
-      font-weight: 600;
-    }
-
-    .status-online {
-      background: #d4edda;
-      color: #155724;
-    }
-
-    .status-offline {
-      background: #f8d7da;
-      color: #721c24;
-    }
-
-    .status-checking {
-      background: #fff3cd;
-      color: #856404;
-    }
-
-    .status-dot {
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-    }
-
-    .status-online .status-dot {
-      background: #28a745;
-      animation: pulse-green 2s infinite;
-    }
-
-    .status-offline .status-dot {
-      background: #dc3545;
-    }
-
-    .status-checking .status-dot {
-      background: #ffc107;
-      animation: pulse-yellow 1s infinite;
-    }
-
-    @keyframes pulse-green {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.5; }
-    }
-
-    @keyframes pulse-yellow {
-      0%, 100% { opacity: 1; transform: scale(1); }
-      50% { opacity: 0.7; transform: scale(1.2); }
-    }
-
-    .device-stats {
-      display: flex;
-      gap: 24px;
-      margin-bottom: 24px;
-      flex-wrap: wrap;
-    }
-
-    .stat {
-      display: flex;
-      flex-direction: column;
-    }
-
-    .stat-value {
-      font-size: 20px;
-      font-weight: bold;
-      color: #2c3e50;
-    }
-
-    .stat-label {
-      font-size: 13px;
-      color: #7f8c8d;
-    }
-
-    .device-actions {
-      display: flex;
-      gap: 12px;
-      flex-wrap: wrap;
-    }
-
-    .action-btn {
-      flex: 1;
-      min-width: 140px;
-      padding: 14px 20px;
-      border: none;
-      border-radius: 8px;
-      font-size: 15px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.3s;
-      text-decoration: none;
-      text-align: center;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-    }
-
-    .btn-primary {
-      background: linear-gradient(135deg, var(--device-color), var(--device-color-dark));
-      color: white;
-    }
-
-    .btn-primary:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
-    }
-
-    .btn-primary:disabled {
-      background: #bdc3c7;
-      cursor: not-allowed;
-      transform: none;
-    }
-
-    .btn-secondary {
-      background: #ecf0f1;
-      color: #2c3e50;
-    }
-
-    .btn-secondary:hover {
-      background: #d5dbdb;
-      transform: translateY(-2px);
-    }
-
-    .latency-info {
-      font-size: 12px;
-      color: #7f8c8d;
-      margin-top: 12px;
-      text-align: right;
-    }
-
-    .no-devices {
-      text-align: center;
-      padding: 60px 20px;
-      color: #7f8c8d;
-    }
-
-    .no-devices h2 {
-      color: #2c3e50;
-      margin-bottom: 10px;
-    }
-
-    @media (max-width: 768px) {
-      body {
-        padding: 10px;
-      }
-
-      .header {
-        flex-direction: column;
-        gap: 15px;
-        text-align: center;
-      }
-
-      .device-header {
-        flex-direction: column;
-        gap: 12px;
-      }
-
-      .device-stats {
-        justify-content: space-between;
-      }
-
-      .device-actions {
-        flex-direction: column;
-      }
-
-      .action-btn {
-        width: 100%;
-      }
-    }
-  </style>
-</head>
-
-<body>
-  <div class="container">
-    <div class="header">
-      <div>
-        <h1>🏠 IoT Device Dashboard</h1>
-        <p class="subtitle">Manage your connected devices</p>
-      </div>
-      <button class="logout-btn" onclick="logout()">Logout</button>
-    </div>
-
-    <div class="content">
-      <div class="devices-grid" id="devicesGrid">
-        {% for device in device_types %}
-        <div class="device-card" style="--device-color: {{ device.color }}; --device-color-dark: {{ device.color }}CC;">
-          <div class="device-header">
-            <div class="device-info">
-              <h2>{{ device.icon }} {{ device.name }}</h2>
-              <p>{{ device.description }}</p>
-            </div>
-            <div class="device-status status-checking" id="status-{{ device.type }}">
-              <span class="status-dot"></span>
-              <span class="status-text">Checking...</span>
-            </div>
-          </div>
-
-          <div class="device-stats">
-            <div class="stat">
-              <span class="stat-value">{{ device.device_count }}</span>
-              <span class="stat-label">Devices</span>
-            </div>
-            <div class="stat">
-              <span class="stat-value">{{ device.event_count }}</span>
-              <span class="stat-label">Total Events</span>
-            </div>
-            <div class="stat">
-              <span class="stat-value">
-                {% if device.last_activity %}
-                  {{ device.last_activity[:10] }}
-                {% else %}
-                  Never
-                {% endif %}
-              </span>
-              <span class="stat-label">Last Activity</span>
-            </div>
-          </div>
-
-          <div class="device-actions">
-            {% if device.has_local_dashboard and device.proxy_path %}
-            <a href="{{ device.proxy_path }}/" class="action-btn btn-primary" id="live-btn-{{ device.type }}">
-              📡 Live Device
-            </a>
-            {% endif %}
-            <a href="/admin/{{ device.type }}" class="action-btn btn-secondary">
-              📊 Logs & Database
-            </a>
-          </div>
-
-          <div class="latency-info" id="latency-{{ device.type }}"></div>
-        </div>
-        {% else %}
-        <div class="no-devices">
-          <h2>No devices found</h2>
-          <p>Connect your first IoT device to get started.</p>
-        </div>
-        {% endfor %}
-
-        <!-- Doser - static card for testing -->
-        <div class="device-card" style="--device-color: #27ae60; --device-color-dark: #27ae60CC;">
-          <div class="device-header">
-            <div class="device-info">
-              <h2>Doser</h2>
-              <p>Aquarium Dosing System</p>
-            </div>
-            <div class="device-status status-checking" id="status-doser_system">
-              <span class="status-dot"></span>
-              <span class="status-text">Checking...</span>
-            </div>
-          </div>
-
-          <div class="device-stats">
-            <div class="stat">
-              <span class="stat-value">1</span>
-              <span class="stat-label">Devices</span>
-            </div>
-            <div class="stat">
-              <span class="stat-value">-</span>
-              <span class="stat-label">Total Events</span>
-            </div>
-            <div class="stat">
-              <span class="stat-value">-</span>
-              <span class="stat-label">Last Activity</span>
-            </div>
-          </div>
-
-          <div class="device-actions">
-            <a href="/device/doser/" class="action-btn btn-primary" id="live-btn-doser_system">
-              📡 Live Device
-            </a>
-          </div>
-
-          <div class="latency-info" id="latency-doser_system"></div>
-        </div>
-
-      </div>
-    </div>
-  </div>
-
-  <script>
-    // Health check for all devices
-    async function checkDeviceHealth(deviceType) {
-      const statusEl = document.getElementById(`status-${deviceType}`);
-      const latencyEl = document.getElementById(`latency-${deviceType}`);
-      const liveBtn = document.getElementById(`live-btn-${deviceType}`);
-
-      try {
-        const response = await fetch(`/api/device-health/${deviceType}`);
-        const data = await response.json();
-
-        if (data.online) {
-          statusEl.className = 'device-status status-online';
-          statusEl.innerHTML = '<span class="status-dot"></span><span class="status-text">Online</span>';
-          latencyEl.textContent = `Latency: ${data.latency_ms}ms`;
-          liveBtn.classList.remove('btn-disabled');
-          liveBtn.removeAttribute('disabled');
-        } else {
-          statusEl.className = 'device-status status-offline';
-          statusEl.innerHTML = '<span class="status-dot"></span><span class="status-text">Offline</span>';
-          latencyEl.textContent = 'Device unreachable';
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IoT Gateway Dashboard</title>
+    <style>
+        :root {
+            --bg-primary: #0f0a1a;
+            --bg-card: #1a1127;
+            --bg-card-hover: #241832;
+            --bg-input: #2a1e3b;
+            --border: #3d2a4f;
+            --text-primary: #f5f1f9;
+            --text-secondary: #b8a3c8;
+            --text-muted: #7a6b8a;
+            --accent-amber: #f59e0b;
+            --accent-orange: #f97316;
+            --accent-yellow: #eab308;
+            --accent-green: #22c55e;
+            --accent-red: #ef4444;
+            --shadow: 0 4px 24px rgba(0,0,0,0.4);
+            --radius: 12px;
+            --radius-sm: 8px;
         }
-      } catch (error) {
-        console.error(`Health check failed for ${deviceType}:`, error);
-        statusEl.className = 'device-status status-offline';
-        statusEl.innerHTML = '<span class="status-dot"></span><span class="status-text">Error</span>';
-        latencyEl.textContent = 'Check failed';
-      }
-    }
 
-    // Check all devices on page load
-    function checkAllDevices() {
-      const deviceTypes = [{% for device in device_types %}'{{ device.type }}'{% if not loop.last %}, {% endif %}{% endfor %}];
-      deviceTypes.push('doser_system');  // static doser card
-      deviceTypes.forEach(checkDeviceHealth);
-    }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
-    // Initial check
-    checkAllDevices();
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            min-height: 100dvh;
+            line-height: 1.5;
+        }
 
-    // Refresh every 30 seconds
-    setInterval(checkAllDevices, 30000);
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background:
+                radial-gradient(ellipse at 20% 0%, rgba(249, 115, 22, 0.08) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 100%, rgba(245, 158, 11, 0.06) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: 0;
+        }
 
-    function logout() {
-      if (confirm("Are you sure you want to logout?")) {
-        fetch("/logout", { method: "POST" }).then(() => {
-          window.location.href = "/login";
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 16px;
+            position: relative;
+            z-index: 1;
+            min-height: 100vh;
+            min-height: 100dvh;
+        }
+
+        /* Header */
+        header {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            padding: 12px 0 24px;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 24px;
+        }
+
+        .header-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-icon {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, var(--accent-orange), var(--accent-amber));
+            border-radius: var(--radius-sm);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .logo-icon svg {
+            width: 24px;
+            height: 24px;
+            fill: var(--bg-primary);
+        }
+
+        h1 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+        }
+
+        .btn-logout {
+            background: rgba(239, 68, 68, 0.15);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: var(--accent-red);
+            padding: 8px 16px;
+            border-radius: var(--radius-sm);
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-logout:hover {
+            background: rgba(239, 68, 68, 0.25);
+            transform: translateY(-1px);
+        }
+
+        /* Header info row */
+        .header-info {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+        }
+
+        @media (min-width: 600px) {
+            .header-info {
+                grid-template-columns: repeat(4, 1fr);
+            }
+        }
+
+        .info-badge {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 10px 12px;
+        }
+
+        .info-badge .label {
+            font-size: 0.65rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text-muted);
+            margin-bottom: 4px;
+        }
+
+        .info-badge .value {
+            font-family: 'Courier New', monospace;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .info-badge.session .value {
+            color: var(--accent-amber);
+        }
+
+        /* Device cards */
+        .devices-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .device-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 20px;
+            box-shadow: var(--shadow);
+            transition: all 0.2s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .device-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--device-color), var(--device-color-light));
+        }
+
+        .device-card:hover {
+            background: var(--bg-card-hover);
+            transform: translateY(-2px);
+        }
+
+        .device-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 16px;
+        }
+
+        .device-info h2 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 4px;
+            color: var(--text-primary);
+        }
+
+        .device-info .description {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        /* Status badge */
+        .status-badge {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        .status-online {
+            background: rgba(34, 197, 94, 0.15);
+            border: 1px solid rgba(34, 197, 94, 0.3);
+            color: var(--accent-green);
+        }
+
+        .status-online .status-dot {
+            background: var(--accent-green);
+            animation: pulse 2s infinite;
+        }
+
+        .status-offline {
+            background: rgba(239, 68, 68, 0.15);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: var(--accent-red);
+        }
+
+        .status-offline .status-dot {
+            background: var(--accent-red);
+        }
+
+        .status-checking {
+            background: rgba(234, 179, 8, 0.15);
+            border: 1px solid rgba(234, 179, 8, 0.3);
+            color: var(--accent-yellow);
+        }
+
+        .status-checking .status-dot {
+            background: var(--accent-yellow);
+            animation: pulse-fast 1s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        @keyframes pulse-fast {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.6; transform: scale(1.2); }
+        }
+
+        /* Device meta info */
+        .device-meta {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+
+        .meta-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .meta-item .meta-label {
+            font-size: 0.7rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+        }
+
+        .meta-item .meta-value {
+            font-family: 'Courier New', monospace;
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+        }
+
+        /* Action button */
+        .device-actions {
+            display: flex;
+            gap: 12px;
+        }
+
+        .btn-device {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 12px 20px;
+            border-radius: var(--radius-sm);
+            font-size: 0.9rem;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-decoration: none;
+            background: linear-gradient(135deg, var(--device-color), var(--device-color-dark));
+            color: white;
+        }
+
+        .btn-device:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        .btn-device:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-device svg {
+            width: 18px;
+            height: 18px;
+            fill: currentColor;
+        }
+
+        /* No devices */
+        .no-devices {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-muted);
+        }
+
+        .no-devices h2 {
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+
+        /* Footer */
+        .footer-info {
+            text-align: center;
+            padding: 24px 16px;
+            color: var(--text-muted);
+            font-size: 0.75rem;
+        }
+
+        /* Mobile adjustments */
+        @media (max-width: 600px) {
+            .header-top {
+                flex-direction: column;
+                gap: 12px;
+                text-align: center;
+            }
+
+            .logo {
+                justify-content: center;
+            }
+
+            .device-header {
+                flex-direction: column;
+                gap: 12px;
+            }
+
+            .status-badge {
+                align-self: flex-start;
+            }
+        }
+
+        /* Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(15, 10, 26, 0.85);
+            backdrop-filter: blur(4px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.2s ease;
+        }
+
+        .modal-overlay.show {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .modal-box {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 24px;
+            max-width: 360px;
+            width: 90%;
+            transform: scale(0.9);
+            transition: transform 0.2s ease;
+            box-shadow: var(--shadow);
+        }
+
+        .modal-overlay.show .modal-box {
+            transform: scale(1);
+        }
+
+        .modal-icon {
+            width: 56px;
+            height: 56px;
+            margin: 0 auto 16px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(239, 68, 68, 0.15);
+        }
+
+        .modal-icon svg {
+            width: 28px;
+            height: 28px;
+            stroke: var(--accent-red);
+            fill: none;
+            stroke-width: 2;
+        }
+
+        .modal-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            text-align: center;
+            margin-bottom: 8px;
+            color: var(--text-primary);
+        }
+
+        .modal-text {
+            font-size: 0.875rem;
+            text-align: center;
+            color: var(--text-secondary);
+            margin-bottom: 24px;
+            line-height: 1.5;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 12px;
+        }
+
+        .modal-btn {
+            flex: 1;
+            padding: 12px 20px;
+            border-radius: var(--radius-sm);
+            font-size: 0.9rem;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .modal-btn-cancel {
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+        }
+
+        .modal-btn-cancel:hover {
+            background: var(--bg-card-hover);
+            color: var(--text-primary);
+        }
+
+        .modal-btn-confirm {
+            background: rgba(239, 68, 68, 0.15);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: var(--accent-red);
+        }
+
+        .modal-btn-confirm:hover {
+            background: rgba(239, 68, 68, 0.25);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header>
+            <div class="header-top">
+                <div class="logo">
+                    <div class="logo-icon">
+                        <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+                    </div>
+                    <h1>IoT Gateway</h1>
+                </div>
+                <button class="btn-logout" onclick="logout()">Logout</button>
+            </div>
+
+            <div class="header-info">
+                <div class="info-badge">
+                    <span class="label">UTC Time</span>
+                    <span class="value" id="utcTime">--:--:--</span>
+                </div>
+                <div class="info-badge">
+                    <span class="label">Local (PL)</span>
+                    <span class="value" id="localTime">--:--:--</span>
+                </div>
+                <div class="info-badge session">
+                    <span class="label">Session</span>
+                    <span class="value" id="sessionInfo">Loading...</span>
+                </div>
+                <div class="info-badge">
+                    <span class="label">Client IP</span>
+                    <span class="value" id="clientIp">...</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Devices Grid -->
+        <div class="devices-grid" id="devicesGrid">
+            {% for device in device_types %}
+            <div class="device-card"
+                 style="--device-color: {{ device.color }}; --device-color-dark: {{ device.color }}CC; --device-color-light: {{ device.color }}DD;"
+                 data-device-type="{{ device.type }}">
+                <div class="device-header">
+                    <div class="device-info">
+                        <h2>{% if device.icon %}{{ device.icon }} {% endif %}{{ device.name }}</h2>
+                        <p class="description">{{ device.description }}</p>
+                    </div>
+                    <div class="status-badge status-checking" id="status-{{ device.type }}">
+                        <span class="status-dot"></span>
+                        <span class="status-text">Checking</span>
+                    </div>
+                </div>
+
+                <div class="device-meta">
+                    <div class="meta-item">
+                        <span class="meta-label">Last Check</span>
+                        <span class="meta-value" id="lastcheck-{{ device.type }}">--:--:--</span>
+                    </div>
+                    <div class="meta-item">
+                        <span class="meta-label">Latency</span>
+                        <span class="meta-value" id="latency-{{ device.type }}">-- ms</span>
+                    </div>
+                </div>
+
+                <div class="device-actions">
+                    {% if device.has_local_dashboard and device.proxy_path %}
+                    <a href="{{ device.proxy_path }}/" class="btn-device" id="btn-{{ device.type }}">
+                        <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/></svg>
+                        Open Dashboard
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+            {% else %}
+            <div class="no-devices">
+                <h2>No devices configured</h2>
+                <p>Add devices in device_config.py to get started.</p>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Footer -->
+        <div class="footer-info">
+            IoT Gateway Dashboard
+        </div>
+    </div>
+
+    <!-- Logout Modal -->
+    <div class="modal-overlay" id="logoutModal">
+        <div class="modal-box">
+            <div class="modal-icon">
+                <svg viewBox="0 0 24 24">
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                    <polyline points="16 17 21 12 16 7"/>
+                    <line x1="21" y1="12" x2="9" y2="12"/>
+                </svg>
+            </div>
+            <div class="modal-title">Confirm Logout</div>
+            <div class="modal-text">Are you sure you want to end your session?</div>
+            <div class="modal-actions">
+                <button class="modal-btn modal-btn-cancel" onclick="closeLogoutModal()">Cancel</button>
+                <button class="modal-btn modal-btn-confirm" onclick="confirmLogout()">Logout</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Update clocks
+        function updateClocks() {
+            const now = new Date();
+
+            // UTC time
+            const utcHours = String(now.getUTCHours()).padStart(2, '0');
+            const utcMinutes = String(now.getUTCMinutes()).padStart(2, '0');
+            const utcSeconds = String(now.getUTCSeconds()).padStart(2, '0');
+            document.getElementById('utcTime').textContent = `${utcHours}:${utcMinutes}:${utcSeconds}`;
+
+            // Polish time (Europe/Warsaw)
+            const plTime = now.toLocaleTimeString('pl-PL', {
+                timeZone: 'Europe/Warsaw',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: false
+            });
+            document.getElementById('localTime').textContent = plTime;
+        }
+
+        // Update clocks every second
+        updateClocks();
+        setInterval(updateClocks, 1000);
+
+        // Load session info
+        async function loadSessionInfo() {
+            try {
+                const response = await fetch('/api/session-info', {
+                    credentials: 'same-origin'
+                });
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                const data = await response.json();
+
+                if (data.login_time) {
+                    const loginDate = new Date(data.login_time);
+                    const now = new Date();
+                    const diffMs = now - loginDate;
+                    const diffMins = Math.floor(diffMs / 60000);
+
+                    if (diffMins < 1) {
+                        document.getElementById('sessionInfo').textContent = 'Just now';
+                    } else if (diffMins < 60) {
+                        document.getElementById('sessionInfo').textContent = `${diffMins}m ago`;
+                    } else {
+                        const diffHours = Math.floor(diffMins / 60);
+                        document.getElementById('sessionInfo').textContent = `${diffHours}h ${diffMins % 60}m`;
+                    }
+                }
+
+                if (data.client_ip) {
+                    document.getElementById('clientIp').textContent = data.client_ip;
+                }
+            } catch (error) {
+                console.error('Failed to load session info:', error);
+                document.getElementById('sessionInfo').textContent = 'Error';
+            }
+        }
+
+        // Health check for device
+        async function checkDeviceHealth(deviceType) {
+            const statusEl = document.getElementById(`status-${deviceType}`);
+            const latencyEl = document.getElementById(`latency-${deviceType}`);
+            const lastCheckEl = document.getElementById(`lastcheck-${deviceType}`);
+            const btnEl = document.getElementById(`btn-${deviceType}`);
+
+            if (!statusEl) {
+                console.error(`Element not found: status-${deviceType}`);
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/device-health/${deviceType}`, {
+                    credentials: 'same-origin'
+                });
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                const data = await response.json();
+
+                // Update last check time
+                const now = new Date();
+                const timeStr = now.toLocaleTimeString('pl-PL', {
+                    timeZone: 'Europe/Warsaw',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit',
+                    hour12: false
+                });
+                lastCheckEl.textContent = timeStr;
+
+                if (data.online) {
+                    statusEl.className = 'status-badge status-online';
+                    statusEl.innerHTML = '<span class="status-dot"></span><span class="status-text">Online</span>';
+                    latencyEl.textContent = `${data.latency_ms} ms`;
+                    if (btnEl) {
+                        btnEl.removeAttribute('disabled');
+                        btnEl.style.pointerEvents = 'auto';
+                    }
+                } else {
+                    statusEl.className = 'status-badge status-offline';
+                    statusEl.innerHTML = '<span class="status-dot"></span><span class="status-text">Offline</span>';
+                    latencyEl.textContent = '-- ms';
+                    if (btnEl) {
+                        btnEl.setAttribute('disabled', 'true');
+                        btnEl.style.pointerEvents = 'none';
+                    }
+                }
+            } catch (error) {
+                console.error(`Health check failed for ${deviceType}:`, error);
+                statusEl.className = 'status-badge status-offline';
+                statusEl.innerHTML = '<span class="status-dot"></span><span class="status-text">Error</span>';
+                latencyEl.textContent = '-- ms';
+            }
+        }
+
+        // Check all devices
+        function checkAllDevices() {
+            const deviceCards = document.querySelectorAll('[data-device-type]');
+            deviceCards.forEach(card => {
+                const deviceType = card.dataset.deviceType;
+                checkDeviceHealth(deviceType);
+            });
+        }
+
+        // Logout modal functions
+        function logout() {
+            document.getElementById('logoutModal').classList.add('show');
+        }
+
+        function closeLogoutModal() {
+            document.getElementById('logoutModal').classList.remove('show');
+        }
+
+        function confirmLogout() {
+            fetch('/logout', { method: 'POST' }).then(() => {
+                window.location.href = '/login';
+            });
+        }
+
+        // Close modal on overlay click
+        document.getElementById('logoutModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeLogoutModal();
+            }
         });
-      }
-    }
-  </script>
-</body>
 
+        // Close modal on Escape key
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeLogoutModal();
+            }
+        });
+
+        // Initial load
+        loadSessionInfo();
+        checkAllDevices();
+
+        // Refresh session info every minute
+        setInterval(loadSessionInfo, 60000);
+
+        // Refresh health checks every 30 seconds
+        setInterval(checkAllDevices, 30000);
+    </script>
+</body>
 </html>
