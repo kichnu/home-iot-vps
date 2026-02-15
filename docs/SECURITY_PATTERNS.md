@@ -30,10 +30,9 @@ Dostep LAN (bezposredni):
 
 Dostep zdalny (przez VPS proxy):
   Source IP == TRUSTED_PROXY_IP?
-    → Wyciagnij real IP z X-Forwarded-For (resolveClientIP)
-    → Pomin whitelist (WireGuard jest granica zaufania)
-    → Real IP -> RateLimit? -> Sesja? -> Dostep
-                    429          401       200
+    → Auto-auth: checkAuthentication() zwraca true natychmiast
+    → VPS juz uwierzytelnił uzytkownika przez auth_request + sesje VPS
+    → ESP32 nie wymaga wlasnej sesji dla requestow z proxy
 ```
 
 ### Warstwy ochrony
@@ -41,10 +40,10 @@ Dostep zdalny (przez VPS proxy):
 | Warstwa | Dostep LAN | Dostep zdalny (VPS) |
 |---|---|---|
 | Transport | WiFi (brak TLS) | WireGuard tunel (szyfrowany) |
-| IP whitelist | `ALLOWED_IPS[]` — odrzucenie 403 | Pominieta — WireGuard jest granica zaufania |
-| Rate limiting | Per source IP | Per real IP z X-Forwarded-For |
-| Autentykacja | Haslo admin → sesja cookie | Haslo admin → sesja cookie (identycznie) |
-| Session binding | Per source IP | Per real IP z X-Forwarded-For |
+| IP whitelist | `ALLOWED_IPS[]` — odrzucenie 403 | Pominieta — auto-auth dla TRUSTED_PROXY_IP |
+| Rate limiting | Per source IP | Pominiete — VPS ma wlasny rate limiter |
+| Autentykacja ESP32 | Haslo admin → sesja cookie | Pominieta — VPS auth_request jest granica zaufania |
+| Autentykacja VPS | n/a | Haslo/WebAuthn → sesja VPS → auth_request → nginx proxy |
 
 ## 2. Trusted Proxy — rozpoznawanie i X-Forwarded-For
 
@@ -52,9 +51,10 @@ Dostep zdalny (przez VPS proxy):
 |---|---|
 | `TRUSTED_PROXY_IP` | Oddzielny `const IPAddress` w `config.h`, NIE w tablicy `ALLOWED_IPS[]` |
 | Rozpoznanie proxy | `isTrustedProxy()` — `request->client()->remoteIP() == TRUSTED_PROXY_IP` |
+| Auto-auth | `checkAuthentication()` zwraca `true` natychmiast dla trusted proxy |
 | X-Forwarded-For | Parsowanie WYLACZNIE gdy source IP == `TRUSTED_PROXY_IP` |
 | Real IP extraction | `resolveClientIP()` — pierwszy IP z XFF (leftmost = oryginalny klient) |
-| Zastosowanie real IP | Rate limiting, session IP binding, logowanie |
+| Zastosowanie real IP | Logowanie (LOG_INFO) — auth i rate limit pominiete |
 | Fallback | Brak XFF → fallback na source IP (proxy IP) |
 
 ### resolveClientIP() — referencja implementacji
@@ -82,7 +82,8 @@ IPAddress resolveClientIP(AsyncWebServerRequest* request) {
 |---|---|
 | Trust boundary | XFF zaufany WYLACZNIE gdy source IP == `TRUSTED_PROXY_IP` |
 | Header spoofing | Kazde inne zrodlo XFF ignorowane — klienci moga go sfalszyc |
-| Defense in depth | ESP32 wymusza rate limit + sesje nawet przez proxy |
+| Auto-auth model | ESP32 ufa proxy calkowicie — VPS odpowiada za autentykacje i rate limiting |
+| Defense in depth | Wielowarstwowa ochrona na VPS: auth_request + sesja + rate limiter + lockout |
 
 ## 3. Wspolne API — endpointy kazdego urzadzenia
 
@@ -249,7 +250,7 @@ Flask endpoint `/api/auth-check`:
 - Zwraca `200` jesli sesja VPS wazna → nginx przepuszcza request do ESP32
 - Zwraca `401` jesli brak sesji → nginx zwraca blad (redirect do /login)
 
-**Dwuwarstwowa autentykacja:** Uzytkownik loguje sie do VPS (brama), potem osobno do ESP32 (urzadzenie). VPS NIE przechowuje hasel urzadzen ani ich tokenow sesji.
+**Model auto-auth:** Uzytkownik loguje sie TYLKO do VPS (brama). ESP32 automatycznie ufa requestom z TRUSTED_PROXY_IP (auto-auth) — nie wymaga osobnego logowania przez proxy. Przy dostepie LAN (bezposrednim) ESP32 wymaga wlasnej sesji. VPS NIE przechowuje hasel urzadzen ani ich tokenow sesji.
 
 ## 12. nginx — konfiguracja proxy dla urzadzen IoT
 
@@ -291,15 +292,15 @@ location = /device/<device_name>/health {
 
 VPS traktuje kazde urzadzenie jako identyczny serwis HTTP z ustalonym API:
 
-| Operacja VPS | Endpoint IoT | Auth | Cel |
+| Operacja VPS | Endpoint IoT | Auth ESP32 | Cel |
 |---|---|---|---|
-| Monitoring zdrowia | `GET /api/health` | IP only (proxy IP) | Sprawdzenie czy urzadzenie zyje |
-| Proxy dashboardu | `GET /` | Session (user) | Dostep uzytkownika do dashboardu |
-| Proxy logowania | `POST /api/login` | Whitelist/Proxy | Logowanie uzytkownika na ESP32 |
-| Proxy statusu | `GET /api/status` | Session (user) | Polling stanu urzadzenia |
-| Proxy akcji | `POST /api/relay/*` | Session (user) | Sterowanie urzadzeniem |
+| Monitoring zdrowia | `GET /api/health` | IP only (proxy/whitelist) | Sprawdzenie czy urzadzenie zyje |
+| Proxy dashboardu | `GET /` | Auto-auth (proxy) | Dostep uzytkownika do dashboardu |
+| Proxy logowania | `POST /api/login` | Auto-auth (proxy) | Niepotrzebne przez proxy — auto-auth |
+| Proxy statusu | `GET /api/status` | Auto-auth (proxy) | Polling stanu urzadzenia |
+| Proxy akcji | `POST /api/relay/*` | Auto-auth (proxy) | Sterowanie urzadzeniem |
 
-VPS NIE przechowuje hasel urzadzen ani tokenow sesji — kazde urzadzenie zarzadza wlasna autentykacja.
+Przez proxy (VPS) ESP32 nie wymaga wlasnej sesji — auto-auth na podstawie TRUSTED_PROXY_IP. Przy dostepie LAN kazde urzadzenie zarzadza wlasna autentykacja (haslo + sesja cookie).
 
 ## 14. Bezpieczenstwo VPS — Flask
 

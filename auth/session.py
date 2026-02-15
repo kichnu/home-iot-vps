@@ -376,9 +376,9 @@ def validate_session() -> bool:
                 logging.info(f"⏱️ Session expired for {client_ip}")
                 return False
             
-            # Check IP (optional in Nginx mode)
-            if stored_ip != client_ip and not Config.ENABLE_NGINX_MODE:
-                logging.warning(f"⚠️ Session IP mismatch: {stored_ip} vs {client_ip}")
+            # Check IP binding (always enforced — get_real_ip handles proxy)
+            if stored_ip != client_ip:
+                logging.warning(f"Session IP mismatch: {stored_ip} vs {client_ip}")
                 return False
             
             # Update last activity

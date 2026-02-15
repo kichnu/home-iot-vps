@@ -32,32 +32,27 @@ def secure_compare(a: str, b: str) -> bool:
     return hmac.compare_digest(a.encode('utf-8'), b.encode('utf-8'))
 
 
+TRUSTED_PROXY_IPS = ('127.0.0.1', '::1')
+
+
 def get_real_ip() -> str:
     """
     Extract real client IP address (Nginx reverse proxy aware).
-    
-    When behind Nginx reverse proxy with proper configuration:
-    - Checks X-Real-IP header first
-    - Falls back to X-Forwarded-For (takes first IP)
-    - Falls back to request.remote_addr
-    
+
+    Trust boundary: X-Real-IP / X-Forwarded-For headers are only trusted
+    when request.remote_addr is a known proxy (localhost). This prevents
+    IP spoofing via forged headers on direct connections to port 5001.
+
     Returns:
         Client IP address as string
-        
-    Example:
-        >>> client_ip = get_real_ip()
-        '192.168.1.100'
     """
-    if Config.ENABLE_NGINX_MODE:
-        # Nginx passes real IP in X-Real-IP header
+    if Config.ENABLE_NGINX_MODE and request.remote_addr in TRUSTED_PROXY_IPS:
         real_ip = request.headers.get('X-Real-IP')
         if real_ip:
             return real_ip
-        
-        # Fallback to X-Forwarded-For (first IP is the real client)
+
         forwarded_for = request.headers.get('X-Forwarded-For')
         if forwarded_for:
             return forwarded_for.split(',')[0].strip()
-    
-    # Direct connection or no proxy headers
+
     return request.remote_addr

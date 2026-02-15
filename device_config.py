@@ -19,6 +19,12 @@ DEVICE_TYPES = {
         'description': 'Aquarium Dosing System',
         'icon': '',
         'color': '#27ae60'
+    },
+    'switch_system': {
+        'name': 'Switch Timer',
+        'description': 'Switch Timer',
+        'icon': '',
+        'color': '#e67e22'
     }
 }
 
@@ -38,7 +44,7 @@ DEVICE_NETWORK_CONFIG = {
         'lan_ip': '192.168.10.2',
         'lan_port': 80,
         'proxy_path': '/device/top_off_water',
-        'health_endpoint': '/api/status',
+        'health_endpoint': '/api/health',
         'has_local_dashboard': True,
         'timeout_seconds': 5
     },
@@ -46,7 +52,15 @@ DEVICE_NETWORK_CONFIG = {
         'lan_ip': '192.168.10.3',
         'lan_port': 80,
         'proxy_path': '/device/doser',
-        'health_endpoint': '/api/status',
+        'health_endpoint': '/api/health',
+        'has_local_dashboard': True,
+        'timeout_seconds': 5
+    },
+    'switch_system': {
+        'lan_ip': '192.168.10.10',
+        'lan_port': 80,
+        'proxy_path': '/device/switch',
+        'health_endpoint': '/api/health',
         'has_local_dashboard': True,
         'timeout_seconds': 5
     },
