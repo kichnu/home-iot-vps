@@ -57,6 +57,21 @@ def init_database() -> bool:
 
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_locked_until ON failed_login_attempts(locked_until)')
 
+        # WebAuthn / Passkey credentials
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS webauthn_credentials (
+                credential_id TEXT PRIMARY KEY,
+                public_key BLOB NOT NULL,
+                sign_count INTEGER NOT NULL DEFAULT 0,
+                transports TEXT,
+                created_at INTEGER NOT NULL,
+                friendly_name TEXT DEFAULT 'Passkey',
+                last_used_at INTEGER
+            )
+        ''')
+
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_webauthn_created ON webauthn_credentials(created_at)')
+
         conn.commit()
         conn.close()
 

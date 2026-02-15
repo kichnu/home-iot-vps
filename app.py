@@ -25,8 +25,16 @@ from auth import (
     create_session,
     validate_session,
     destroy_session,
-    require_admin_auth
+    require_admin_auth,
+    generate_registration_options,
+    verify_registration_response,
+    generate_authentication_options,
+    verify_authentication_response,
+    get_registered_credentials,
+    delete_credential,
+    has_registered_credentials,
 )
+from webauthn.helpers import bytes_to_base64url, base64url_to_bytes
 
 try:
     from dotenv import load_dotenv
@@ -72,7 +80,7 @@ def get_real_ip_for_limiter():
 limiter = Limiter(
     app=app,
     key_func=get_real_ip_for_limiter,
-    default_limits=["1000 per day", "100 per hour"],
+    default_limits=["5000 per day", "500 per hour"],
     storage_uri="memory://",
     strategy="fixed-window",
     headers_enabled=True,
@@ -116,7 +124,8 @@ def login_page():
     """Login page (GET) - higher rate limit"""
     if validate_session():
         return redirect(url_for('device_dashboard'))
-    return render_template('login.html')
+    passkeys_available = has_registered_credentials()
+    return render_template('login.html', passkeys_available=passkeys_available)
 
 
 @app.route('/login', methods=['POST'])
@@ -317,6 +326,125 @@ def health_check():
         'database': 'ok' if db_ok else 'error',
         'nginx_mode': Config.ENABLE_NGINX_MODE
     }), 200
+
+
+# ============================================
+# WEBAUTHN / PASSKEY ROUTES
+# ============================================
+
+@app.route('/api/webauthn/register/begin', methods=['POST'])
+@require_admin_auth
+@csrf.exempt
+@limiter.limit("10 per hour")
+def webauthn_register_begin():
+    """Begin WebAuthn credential registration (must be logged in)."""
+    try:
+        result = generate_registration_options()
+        session['webauthn_reg_challenge'] = bytes_to_base64url(result['challenge'])
+        return jsonify({'options': result['options_json']}), 200
+    except Exception as e:
+        logging.error(f"WebAuthn register begin error: {e}")
+        return jsonify({'error': 'Failed to generate registration options'}), 500
+
+
+@app.route('/api/webauthn/register/complete', methods=['POST'])
+@require_admin_auth
+@csrf.exempt
+@limiter.limit("10 per hour")
+def webauthn_register_complete():
+    """Complete WebAuthn credential registration."""
+    challenge_b64 = session.pop('webauthn_reg_challenge', None)
+    if not challenge_b64:
+        return jsonify({'error': 'No registration challenge found. Start over.'}), 400
+
+    try:
+        challenge_bytes = base64url_to_bytes(challenge_b64)
+        credential_json = request.get_data(as_text=True)
+
+        result = verify_registration_response(credential_json, challenge_bytes)
+
+        if result.get('success'):
+            logging.info(f"WebAuthn credential registered: {result['credential_id'][:16]}...")
+            return jsonify({'success': True, 'credential_id': result['credential_id']}), 200
+        else:
+            return jsonify({'error': result.get('error', 'Registration failed')}), 400
+    except Exception as e:
+        logging.error(f"WebAuthn register complete error: {e}")
+        return jsonify({'error': 'Registration verification failed'}), 500
+
+
+@app.route('/api/webauthn/auth/begin', methods=['POST'])
+@csrf.exempt
+@limiter.limit("20 per 15 minutes")
+def webauthn_auth_begin():
+    """Begin WebAuthn authentication (login page, no session required)."""
+    client_ip = get_real_ip()
+
+    attempt_info = get_failed_attempts_info(client_ip)
+    if attempt_info.get('is_locked'):
+        return jsonify({'error': 'Account temporarily locked'}), 429
+
+    try:
+        result = generate_authentication_options()
+        if result is None:
+            return jsonify({'error': 'No passkeys registered'}), 404
+
+        session['webauthn_auth_challenge'] = bytes_to_base64url(result['challenge'])
+        return jsonify({'options': result['options_json']}), 200
+    except Exception as e:
+        logging.error(f"WebAuthn auth begin error: {e}")
+        return jsonify({'error': 'Failed to generate authentication options'}), 500
+
+
+@app.route('/api/webauthn/auth/complete', methods=['POST'])
+@csrf.exempt
+@limiter.limit("10 per 15 minutes")
+def webauthn_auth_complete():
+    """Complete WebAuthn authentication and create session."""
+    client_ip = get_real_ip()
+
+    challenge_b64 = session.pop('webauthn_auth_challenge', None)
+    if not challenge_b64:
+        return jsonify({'error': 'No authentication challenge found. Start over.'}), 400
+
+    try:
+        challenge_bytes = base64url_to_bytes(challenge_b64)
+        credential_json = request.get_data(as_text=True)
+
+        result = verify_authentication_response(credential_json, challenge_bytes)
+
+        if result.get('success'):
+            reset_failed_attempts(client_ip)
+            create_session(client_ip)
+            logging.info(f"WebAuthn login successful from IP: {client_ip}")
+            return jsonify({'success': True, 'redirect': url_for('device_dashboard')}), 200
+        else:
+            record_failed_attempt(client_ip)
+            logging.warning(f"WebAuthn auth failed from IP: {client_ip}: {result.get('error')}")
+            return jsonify({'error': 'Authentication failed'}), 401
+    except Exception as e:
+        logging.error(f"WebAuthn auth complete error: {e}")
+        record_failed_attempt(client_ip)
+        return jsonify({'error': 'Authentication verification failed'}), 500
+
+
+@app.route('/api/webauthn/credentials', methods=['GET'])
+@require_admin_auth
+def webauthn_list_credentials():
+    """List all registered WebAuthn credentials."""
+    credentials = get_registered_credentials()
+    return jsonify({'credentials': credentials}), 200
+
+
+@app.route('/api/webauthn/credentials/<credential_id>', methods=['DELETE'])
+@require_admin_auth
+@csrf.exempt
+def webauthn_delete_credential(credential_id):
+    """Delete a WebAuthn credential."""
+    if delete_credential(credential_id):
+        logging.info(f"WebAuthn credential deleted: {credential_id[:16]}...")
+        return jsonify({'success': True}), 200
+    return jsonify({'error': 'Credential not found'}), 404
 
 
 # ============================================

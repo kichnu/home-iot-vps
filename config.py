@@ -42,6 +42,11 @@ class Config:
     MAX_FAILED_ATTEMPTS = int(os.getenv('WATER_SYSTEM_MAX_FAILED_ATTEMPTS', '8'))
     LOCKOUT_DURATION_HOURS = int(os.getenv('WATER_SYSTEM_LOCKOUT_DURATION', '1'))
 
+    # WebAuthn / Passkey configuration
+    WEBAUTHN_RP_ID = os.getenv('WATER_SYSTEM_WEBAUTHN_RP_ID', 'localhost')
+    WEBAUTHN_RP_NAME = os.getenv('WATER_SYSTEM_WEBAUTHN_RP_NAME', 'IoT Gateway')
+    WEBAUTHN_ORIGIN = os.getenv('WATER_SYSTEM_WEBAUTHN_ORIGIN', 'https://localhost')
+
     # Flask configuration
     TEMPLATES_AUTO_RELOAD = True
     SESSION_COOKIE_HTTPONLY = True
@@ -73,6 +78,9 @@ Set in .env file or system environment:
         if not cls.SECRET_KEY:
             print("WARNING: WATER_SYSTEM_SECRET_KEY not set - sessions will be invalidated on restart")
 
+        if cls.WEBAUTHN_RP_ID == 'localhost':
+            print("WARNING: WATER_SYSTEM_WEBAUTHN_RP_ID not set - WebAuthn will only work on localhost")
+
         return True
 
     @classmethod
@@ -85,4 +93,6 @@ Set in .env file or system environment:
         logger.info(f"Admin port: {cls.ADMIN_PORT}")
         logger.info(f"Nginx mode: {cls.ENABLE_NGINX_MODE}")
         logger.info(f"Session timeout: {cls.SESSION_TIMEOUT_MINUTES} minutes")
+        logger.info(f"WebAuthn RP ID: {cls.WEBAUTHN_RP_ID}")
+        logger.info(f"WebAuthn Origin: {cls.WEBAUTHN_ORIGIN}")
         logger.info(f"Log level: {cls.LOG_LEVEL}")

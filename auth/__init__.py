@@ -12,6 +12,15 @@ from .session import (
     destroy_session
 )
 from .decorators import require_admin_auth
+from .webauthn import (
+    generate_registration_options,
+    verify_registration_response,
+    generate_authentication_options,
+    verify_authentication_response,
+    get_registered_credentials,
+    delete_credential,
+    has_registered_credentials
+)
 
 __all__ = [
     'cleanup_expired_sessions',
@@ -21,5 +30,12 @@ __all__ = [
     'create_session',
     'validate_session',
     'destroy_session',
-    'require_admin_auth'
+    'require_admin_auth',
+    'generate_registration_options',
+    'verify_registration_response',
+    'generate_authentication_options',
+    'verify_authentication_response',
+    'get_registered_credentials',
+    'delete_credential',
+    'has_registered_credentials',
 ]

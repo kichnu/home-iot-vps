@@ -12,3 +12,6 @@ flask-limiter==3.5.0
 
 # Environment variables support for development
 python-dotenv==1.0.0
+
+# WebAuthn / FIDO2 passkey authentication
+webauthn==2.7.0

@@ -197,6 +197,63 @@
             line-height: 1.6;
         }
 
+        .passkey-divider {
+            display: flex;
+            align-items: center;
+            margin: 20px 0;
+            color: var(--text-muted);
+            font-size: 0.8rem;
+        }
+
+        .passkey-divider::before,
+        .passkey-divider::after {
+            content: '';
+            flex: 1;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .passkey-divider span {
+            padding: 0 12px;
+        }
+
+        .passkey-btn {
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+            padding: 14px 28px;
+            border-radius: var(--radius-sm);
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .passkey-btn:hover:not(:disabled) {
+            background: var(--bg-card-hover);
+            border-color: var(--accent-amber);
+        }
+
+        .passkey-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .passkey-error {
+            background: rgba(239, 68, 68, 0.15);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: var(--accent-red);
+            padding: 12px 16px;
+            margin-top: 16px;
+            border-radius: var(--radius-sm);
+            font-size: 0.875rem;
+            text-align: center;
+        }
+
         @media (max-width: 480px) {
             .login-container {
                 padding: 32px 24px;
@@ -235,6 +292,23 @@
             </button>
         </form>
 
+        {% if passkeys_available %}
+        <div class="passkey-divider">
+            <span>or</span>
+        </div>
+
+        <button type="button" class="passkey-btn" id="passkeyBtn" onclick="startPasskeyLogin()">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                <circle cx="12" cy="16.5" r="1"/>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+            </svg>
+            Sign in with Passkey
+        </button>
+
+        <div class="passkey-error" id="passkeyError" style="display:none;"></div>
+        {% endif %}
+
         <div class="version-info">
             IoT Gateway<br>
             Session-based Authentication
@@ -256,6 +330,109 @@
         document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('password').focus();
         });
+
+        // WebAuthn / Passkey Login
+        async function startPasskeyLogin() {
+            const btn = document.getElementById('passkeyBtn');
+            const errorDiv = document.getElementById('passkeyError');
+
+            btn.disabled = true;
+            btn.textContent = 'Waiting for fingerprint...';
+            if (errorDiv) errorDiv.style.display = 'none';
+
+            try {
+                const beginResp = await fetch('/api/webauthn/auth/begin', {
+                    method: 'POST',
+                    credentials: 'same-origin'
+                });
+
+                if (!beginResp.ok) {
+                    const err = await beginResp.json();
+                    throw new Error(err.error || 'Failed to start authentication');
+                }
+
+                const beginData = await beginResp.json();
+                const options = JSON.parse(beginData.options);
+
+                options.challenge = base64urlToBuffer(options.challenge);
+                if (options.allowCredentials) {
+                    options.allowCredentials = options.allowCredentials.map(function(cred) {
+                        return Object.assign({}, cred, { id: base64urlToBuffer(cred.id) });
+                    });
+                }
+
+                const credential = await navigator.credentials.get({ publicKey: options });
+
+                const authResponse = {
+                    id: credential.id,
+                    rawId: bufferToBase64url(credential.rawId),
+                    response: {
+                        authenticatorData: bufferToBase64url(credential.response.authenticatorData),
+                        clientDataJSON: bufferToBase64url(credential.response.clientDataJSON),
+                        signature: bufferToBase64url(credential.response.signature),
+                        userHandle: credential.response.userHandle
+                            ? bufferToBase64url(credential.response.userHandle)
+                            : null
+                    },
+                    type: credential.type,
+                    authenticatorAttachment: credential.authenticatorAttachment || null
+                };
+
+                const completeResp = await fetch('/api/webauthn/auth/complete', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(authResponse),
+                    credentials: 'same-origin'
+                });
+
+                const completeData = await completeResp.json();
+
+                if (completeResp.ok && completeData.success) {
+                    window.location.href = completeData.redirect || '/dashboard';
+                } else {
+                    showPasskeyError(completeData.error || 'Authentication failed');
+                }
+            } catch (error) {
+                if (error.name === 'NotAllowedError') {
+                    showPasskeyError('Authentication cancelled or timed out.');
+                } else if (error.name === 'SecurityError') {
+                    showPasskeyError('Security error. Ensure you are using HTTPS.');
+                } else {
+                    showPasskeyError(error.message || 'Passkey authentication failed');
+                }
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><circle cx="12" cy="16.5" r="1"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Sign in with Passkey';
+            }
+        }
+
+        function showPasskeyError(message) {
+            var errorDiv = document.getElementById('passkeyError');
+            if (errorDiv) {
+                errorDiv.textContent = message;
+                errorDiv.style.display = 'block';
+            }
+        }
+
+        function base64urlToBuffer(base64url) {
+            var base64 = base64url.replace(/-/g, '+').replace(/_/g, '/');
+            var padding = '='.repeat((4 - base64.length % 4) % 4);
+            var binary = atob(base64 + padding);
+            var bytes = new Uint8Array(binary.length);
+            for (var i = 0; i < binary.length; i++) {
+                bytes[i] = binary.charCodeAt(i);
+            }
+            return bytes.buffer;
+        }
+
+        function bufferToBase64url(buffer) {
+            var bytes = new Uint8Array(buffer);
+            var binary = '';
+            for (var i = 0; i < bytes.length; i++) {
+                binary += String.fromCharCode(bytes[i]);
+            }
+            return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+        }
     </script>
 </body>
 </html>

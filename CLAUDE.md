@@ -32,14 +32,16 @@ sudo systemctl restart home-iot
 - Authentication: `/login`, `/logout`
 - Dashboard: `/dashboard` (protected, shows device cards)
 - API: `/api/auth-check` (Nginx auth_request), `/api/device-health/<device_type>`
+- WebAuthn: `/api/webauthn/register/begin|complete`, `/api/webauthn/auth/begin|complete`, `/api/webauthn/credentials`
 
 **`auth/`** - Session management module:
 - `session.py` - Database-backed sessions with IP tracking, failed login tracking, account lockout
 - `decorators.py` - `@require_admin_auth` decorator for protected routes
+- `webauthn.py` - FIDO2/WebAuthn passkey registration and authentication ceremonies
 
 **`database/`** - SQLite layer (WAL mode enabled):
 - `connection.py` - Context manager `get_db_connection()` with auto-commit
-- `init.py` - Schema for `admin_sessions` and `failed_login_attempts` tables only
+- `init.py` - Schema for `admin_sessions`, `failed_login_attempts`, and `webauthn_credentials` tables
 
 **`device_config.py`** - Device definitions:
 - `DEVICE_TYPES` - Display info (name, icon, color)
@@ -58,16 +60,45 @@ Environment variables (prefix `WATER_SYSTEM_`):
 - `NGINX_MODE` - Default true (affects IP detection)
 - `SESSION_TIMEOUT` - Minutes, default 30
 - `MAX_FAILED_ATTEMPTS` / `LOCKOUT_DURATION` - Brute-force protection
+- `WEBAUTHN_RP_ID` - Domain name for WebAuthn (e.g., `app.krzysztoforlinski.pl`)
+- `WEBAUTHN_RP_NAME` - Display name (default: `IoT Gateway`)
+- `WEBAUTHN_ORIGIN` - Full origin URL (e.g., `https://app.krzysztoforlinski.pl`)
 
 ### Database
 
-SQLite at `data/database/sessions.db` with two tables:
+SQLite at `data/database/sessions.db` with three tables:
 - `admin_sessions` - Session tokens, IP, timestamps
 - `failed_login_attempts` - IP-based lockout tracking
+- `webauthn_credentials` - FIDO2 passkey credentials (credential_id, public_key, sign_count)
 
 No event logging or data storage - this is purely an auth gateway.
 
-### Documentation
+### WebAuthn / FIDO2 Passkey Authentication
 
-- `docs/CODE-REVIEW-2026-01.md` - Security audit, code quality issues, TODOs
-- `docs/PLAN-REORGANIZACJA-VPS.md` - Reorganization history and security fixes
+**Library:** `webauthn==2.7.0` (py_webauthn by Duo Labs)
+
+**Flow:**
+1. Admin logs in with password, registers passkey from Dashboard -> Security section
+2. On next login, "Sign in with Passkey" button appears alongside password form
+3. Passkey auth creates the same session as password login (uses `create_session()`)
+4. Failed WebAuthn attempts feed into existing IP-based lockout system
+
+**Registration:** Requires active session (password login first). No `authenticator_attachment` restriction - accepts platform (fingerprint), cross-device (QR code), and security keys (NFC/USB).
+
+**Nginx:** `/api/webauthn/` routes require explicit proxy rule to port 5001 in Nginx config. Without it, the generic `/api/` rule routes to port 5000 (ESP32).
+
+**Security:** Challenges stored in Flask session (server-side, signed). Consumed once via `session.pop()`. User verification required. Sign count validated on each auth.
+
+### Known Issues - GrapheneOS
+
+**Passkey platform authenticator does NOT work on GrapheneOS** (tested Jan 2026):
+- Sandboxed Google Play Services lack full access to the lockout/biometrics API
+- PIN verification loops endlessly ("unlock device again" prompt repeats)
+- Happens even with all permissions granted to Play Services
+- Affects both Vanadium and Chrome browsers
+- **Standard Android works correctly** - fingerprint registration and login confirmed
+
+**Workarounds for GrapheneOS users:**
+- Use a hardware security key (YubiKey 5C NFC, Google Titan) via NFC or USB-C
+- Use cross-device flow: scan QR code with a standard Android phone
+- Fall back to password login (always available)
